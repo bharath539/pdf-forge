@@ -17,7 +17,7 @@ async def get_pool() -> asyncpg.Pool:
     if _pool is None:
         _pool = await asyncio.wait_for(
             asyncpg.create_pool(
-                dsn=settings.DATABASE_URL,
+                dsn=settings.database_url_async,
                 min_size=1,
                 max_size=10,
             ),

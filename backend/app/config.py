@@ -17,5 +17,14 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
     }
 
+    @property
+    def database_url_async(self) -> str:
+        """Return DATABASE_URL with asyncpg-compatible scheme."""
+        url = self.DATABASE_URL
+        # Railway uses postgres:// but asyncpg requires postgresql://
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
+
 
 settings = Settings()
