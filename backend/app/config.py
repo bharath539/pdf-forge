@@ -5,7 +5,11 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables and .env file."""
 
     DATABASE_URL: str = "postgresql://localhost:5432/pdf_forge"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "https://frontend-one-fawn-73.vercel.app",
+        "https://pdf-forge-app.vercel.app",
+    ]
     DEBUG: bool = True
 
     model_config = {
