@@ -1,6 +1,6 @@
 # PDF Forge — Build Progress
 
-## Current Phase: Phase 8 — Quality + Ship (T20 Deploy remaining)
+## Current Phase: COMPLETE — All 21 tasks done
 
 ## Task Status
 
@@ -25,11 +25,11 @@
 | T17 | Frontend — Generation Console | Done | 7 | 2026-03-31 |
 | T18 | Tests | Done | 8 | 2026-03-31 |
 | T19 | CI pipeline | Done | 8 | 2026-03-31 |
-| T20 | Deploy | Pending | 8 | — |
+| T20 | Deploy | Done | 8 | 2026-03-31 |
 | T21 | GitHub repo creation | Done | 1 | 2026-03-31 |
 
 ## Summary
-- 20/21 tasks complete. Only T20 (Deploy to Vercel + Railway) remains.
+- 21/21 tasks complete.
 - GitHub repo: https://github.com/bharath539/pdf-forge
 - Backend: FastAPI with full learning, sanitization, and generation pipeline
 - Frontend: Next.js with Upload Portal, Format Library, and Generation Console

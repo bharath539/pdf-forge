@@ -75,6 +75,19 @@ docker-compose.yml, CLAUDE.md, .github/workflows/ci.yml
 - 12 test scenarios covering realistic bank statement variations
 - Schema stores structural metadata only — no PII, no transaction data
 
-### Remaining
-- T20: Deploy (Vercel frontend + Railway/Fly.io backend) — manual step
-- Initial commit + push to GitHub
+**Phase 8 — Deploy (T20)**
+- Backend deployed to Railway with Dockerfile (python:3.11-slim)
+- Frontend deployed to Vercel under KineticAI team
+- PostgreSQL added on Railway, DATABASE_URL linked to backend
+- Fixed import paths (backend.app.* → app.*), DB connection timeout, startup resilience
+- CORS configured for all production domains
+
+### Deployment URLs
+- **Frontend:** https://pdf-forge-app.vercel.app
+- **Backend:** https://backend-production-9523.up.railway.app
+- **Backend health:** https://backend-production-9523.up.railway.app/api/health
+- **GitHub:** https://github.com/bharath539/pdf-forge
+- **Railway project:** https://railway.com/project/aa129fdb-7977-4513-8053-9d1777e7956b
+
+### All tasks complete
+21/21 tasks done. Full V1 built and deployed in a single session.
