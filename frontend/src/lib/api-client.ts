@@ -9,16 +9,21 @@ export interface FormatSchema {
   id: string;
   bank_name: string;
   account_type: string;
-  learned_at: string;
+  display_name: string;
   page_count: number;
-  schema: Record<string, unknown>;
+  created_at: string;
+  schema_json?: Record<string, unknown>;
 }
 
 export interface LearnResponse {
-  format_id: string;
+  id: string;
   bank_name: string;
   account_type: string;
-  schema: Record<string, unknown>;
+  display_name: string;
+  schema_json: Record<string, unknown>;
+  page_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GenerateParams {

@@ -132,11 +132,11 @@ function DetailPanel({
   onDelete: (f: FormatSchema) => void;
 }) {
   const router = useRouter();
-  const sections = schemaArray(format.schema, "sections");
-  const patterns = schemaArray(format.schema, "description_patterns");
-  const fonts = schemaArray(format.schema, "fonts");
-  const displayName = schemaString(format.schema, "display_name");
-  const dims = schemaPageDimensions(format.schema);
+  const sections = schemaArray(format.schema_json ?? {}, "sections");
+  const patterns = schemaArray(format.schema_json ?? {}, "description_patterns");
+  const fonts = schemaArray(format.schema_json ?? {}, "fonts");
+  const displayName = schemaString(format.schema_json ?? {}, "display_name");
+  const dims = schemaPageDimensions(format.schema_json ?? {});
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
@@ -198,7 +198,7 @@ function DetailPanel({
             <div>
               <p className="text-xs text-slate-400 mb-1">Learned</p>
               <p className="text-sm text-slate-700">
-                {formatDate(format.learned_at)}
+                {formatDate(format.created_at)}
               </p>
             </div>
             <div>

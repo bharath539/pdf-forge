@@ -53,9 +53,9 @@ function getDisplayName(schema: Record<string, unknown>): string | null {
 }
 
 export default function FormatCard({ format, onClick, onDelete }: FormatCardProps) {
-  const sections = getSections(format.schema);
-  const patterns = getDescriptionPatterns(format.schema);
-  const displayName = getDisplayName(format.schema);
+  const sections = getSections(format.schema_json ?? {});
+  const patterns = getDescriptionPatterns(format.schema_json ?? {});
+  const displayName = getDisplayName(format.schema_json ?? {});
   const badgeClass =
     accountTypeBadge[format.account_type] ?? "bg-slate-100 text-slate-700";
   const accountLabel = format.account_type.replace(/_/g, " ");
@@ -126,7 +126,7 @@ export default function FormatCard({ format, onClick, onDelete }: FormatCardProp
         <span>&middot;</span>
         <span>{patterns.length} pattern{patterns.length !== 1 ? "s" : ""}</span>
         <span>&middot;</span>
-        <span>{relativeTime(format.learned_at)}</span>
+        <span>{relativeTime(format.created_at)}</span>
       </div>
     </button>
   );

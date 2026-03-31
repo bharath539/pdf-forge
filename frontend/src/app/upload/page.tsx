@@ -108,6 +108,7 @@ export default function UploadPage() {
         setAccountType(
           (learnResult as LearnResponse).account_type || "checking",
         );
+        setDisplayName((learnResult as LearnResponse).display_name || "");
         setPageState("preview");
       }
     },
@@ -121,8 +122,8 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/formats/${result.format_id}`, {
-        method: "PATCH",
+      const res = await fetch(`${BASE_URL}/api/formats/${result.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bank_name: bankName,
@@ -136,7 +137,7 @@ export default function UploadPage() {
         throw new Error(body);
       }
 
-      setSavedFormatId(result.format_id);
+      setSavedFormatId(result.id);
       setPageState("saved");
     } catch (err) {
       setError(
@@ -303,7 +304,7 @@ export default function UploadPage() {
               Here&apos;s what we learned from your statement. Review the
               structure, then save it to your format library.
             </p>
-            <SchemaPreview schema={result.schema} />
+            <SchemaPreview schema={result.schema_json} />
           </div>
 
           {/* Save Form */}
