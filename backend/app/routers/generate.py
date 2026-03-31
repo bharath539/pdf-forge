@@ -79,9 +79,8 @@ def _sanitize_filename(name: str) -> str:
 
 
 @router.post("/generate")
-async def generate_pdf(body: GenerationRequest) -> StreamingResponse:
+async def generate_pdf(params: GenerationParams) -> StreamingResponse:
     """Generate a single synthetic PDF from a learned format schema."""
-    params = body.params
     schema, bank_name, account_type = await _fetch_schema(params.schema_id)
 
     generator = SyntheticGenerator()
@@ -105,9 +104,8 @@ async def generate_pdf(body: GenerationRequest) -> StreamingResponse:
 
 
 @router.post("/generate/preview")
-async def generate_preview(body: PreviewRequest) -> StreamingResponse:
+async def generate_preview(params: GenerationParams) -> StreamingResponse:
     """Generate a first-page preview PDF from a learned format schema."""
-    params = body.params
     schema, bank_name, account_type = await _fetch_schema(params.schema_id)
 
     generator = SyntheticGenerator()
