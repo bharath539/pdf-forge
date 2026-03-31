@@ -138,8 +138,20 @@ def _font_weight(fontname: str) -> str:
     return "normal"
 
 
+_KNOWN_FONT_FAMILIES = {
+    "helvetica", "arial", "courier", "times", "times new roman",
+    "times-roman", "verdana", "georgia", "tahoma", "calibri",
+    "cambria", "garamond", "palatino", "century", "bookman",
+    "futura", "optima", "gill sans", "avenir", "roboto", "open sans",
+    "lato", "source sans", "noto sans", "inter",
+}
+
+
 def _font_family(fontname: str) -> str:
-    """Extract a clean font family name."""
+    """Extract a clean font family name.
+
+    Maps proprietary/encoded font names to known families or 'Helvetica' fallback.
+    """
     # Strip common suffixes added by PDF encoders
     name = fontname
     for suffix in [
@@ -151,7 +163,22 @@ def _font_family(fontname: str) -> str:
     # Strip subset prefix like ABCDEF+
     if "+" in name:
         name = name.split("+", 1)[1]
-    return name or "Unknown"
+
+    if not name:
+        return "Helvetica"
+
+    # Check if the extracted name matches a known font family
+    name_lower = name.lower().strip()
+    if name_lower in _KNOWN_FONT_FAMILIES:
+        return name
+
+    # Check if name contains a known family as a substring
+    for known in _KNOWN_FONT_FAMILIES:
+        if known in name_lower:
+            return known.title()
+
+    # Proprietary/encoded font — fall back to Helvetica
+    return "Helvetica"
 
 
 def _detect_date_format(values: list[str]) -> str | None:
@@ -209,6 +236,9 @@ def _detect_amount_format(values: list[str]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # FormatLearner
 # ---------------------------------------------------------------------------
+
+_MIN_FONT_SIZE = 4.0  # Ignore fonts below this size (often invisible form fields)
+
 
 class FormatLearner:
     """Analyzes uploaded PDF files to extract structural patterns.
@@ -271,7 +301,7 @@ class FormatLearner:
 
             # --- Step 7: Assemble ---
             bank_name = self._detect_bank_name(first_page, page_layout)
-            account_type = self._infer_account_type(table_section)
+            account_type = self._infer_account_type(table_section, bank_name, sections)
 
         schema = FormatSchema(
             schema_version="1.0",
@@ -367,17 +397,25 @@ class FormatLearner:
                 font_map[key]["count"] += 1
                 font_map[key]["y_positions"].append(float(char.get("top", 0)))
 
-        if not font_map:
+        # Filter out invisible/tiny fonts (e.g., form fields, hidden chars)
+        readable_font_map = {
+            k: v for k, v in font_map.items() if v["size"] >= _MIN_FONT_SIZE
+        }
+        if not readable_font_map:
+            # Fall back to all fonts if filtering removed everything
+            readable_font_map = font_map
+
+        if not readable_font_map:
             logger.warning("No fonts detected; returning minimal defaults")
             return [
                 FontSpec(role=FontRole.BODY, family="Helvetica", size=10, weight="normal"),
             ]
 
         # Sort by size descending
-        sorted_fonts = sorted(font_map.values(), key=lambda f: f["size"], reverse=True)
+        sorted_fonts = sorted(readable_font_map.values(), key=lambda f: f["size"], reverse=True)
 
         # Find most common font (by char count)
-        most_common = max(font_map.values(), key=lambda f: f["count"])
+        most_common = max(readable_font_map.values(), key=lambda f: f["count"])
 
         # Classify roles
         assigned_roles: dict[FontRole, dict[str, Any]] = {}
@@ -396,7 +434,7 @@ class FormatLearner:
         # Footer = smallest font appearing in bottom 15% of page
         footer_threshold = page_height * 0.85
         footer_candidates = [
-            f for f in font_map.values()
+            f for f in readable_font_map.values()
             if any(y > footer_threshold for y in f["y_positions"])
         ]
         if footer_candidates:
@@ -408,7 +446,7 @@ class FormatLearner:
         assigned_roles.setdefault(FontRole.TABLE_BODY, most_common)
         # Table header is often bold version of body size or slightly larger
         bold_body_candidates = [
-            f for f in font_map.values()
+            f for f in readable_font_map.values()
             if f["weight"] == "bold"
             and abs(f["size"] - most_common["size"]) <= 2
         ]
@@ -986,30 +1024,54 @@ class FormatLearner:
 
         return "Detected Bank"
 
-    def _infer_account_type(self, table_section: Section | None) -> AccountType:
-        """Infer account type from column structure."""
-        if not table_section or not table_section.columns:
-            return AccountType.CHECKING
-
-        headers_lower = [c.header.lower() for c in table_section.columns]
-        all_headers = " ".join(headers_lower)
-
-        # Credit card indicators
-        if any(kw in all_headers for kw in [
-            "minimum payment", "credit limit", "new charges",
-            "payment due", "previous balance", "new balance",
-            "purchases", "cash advance",
-        ]):
+    def _infer_account_type(
+        self,
+        table_section: Section | None,
+        bank_name: str = "",
+        sections: list[Section] | None = None,
+    ) -> AccountType:
+        """Infer account type from column structure, bank name, and summary fields."""
+        # Check bank name for credit card indicators
+        name_lower = bank_name.lower()
+        credit_card_name_keywords = [
+            "visa", "mastercard", "amex", "american express",
+            "discover", "credit card", "card by",
+        ]
+        if any(kw in name_lower for kw in credit_card_name_keywords):
             return AccountType.CREDIT_CARD
 
-        # Credit cards often lack a running "balance" column but have credits/debits
-        has_balance = any("balance" in h for h in headers_lower)
-        has_credit_debit = (
-            any("credit" in h for h in headers_lower)
-            and any("debit" in h for h in headers_lower)
-        )
-        if has_credit_debit and not has_balance:
-            return AccountType.CREDIT_CARD
+        # Check summary field labels for credit card indicators
+        if sections:
+            for sec in sections:
+                if sec.type == SectionType.ACCOUNT_SUMMARY and sec.fields:
+                    all_labels = " ".join(f.label.lower() for f in sec.fields)
+                    if any(kw in all_labels for kw in [
+                        "minimum payment", "credit limit", "new balance",
+                        "payment due", "previous balance", "cash advance",
+                        "purchases", "new charges",
+                    ]):
+                        return AccountType.CREDIT_CARD
+
+        # Check table column headers
+        if table_section and table_section.columns:
+            headers_lower = [c.header.lower() for c in table_section.columns]
+            all_headers = " ".join(headers_lower)
+
+            if any(kw in all_headers for kw in [
+                "minimum payment", "credit limit", "new charges",
+                "payment due", "previous balance", "new balance",
+                "purchases", "cash advance",
+            ]):
+                return AccountType.CREDIT_CARD
+
+            # Credit cards often lack a running "balance" column but have credits/debits
+            has_balance = any("balance" in h for h in headers_lower)
+            has_credit_debit = (
+                any("credit" in h for h in headers_lower)
+                and any("debit" in h for h in headers_lower)
+            )
+            if has_credit_debit and not has_balance:
+                return AccountType.CREDIT_CARD
 
         # Savings vs checking is hard to distinguish from table alone
         return AccountType.CHECKING

@@ -132,6 +132,9 @@ def _hex_to_color(hex_str: str) -> Color:
         return HexColor("#000000")
 
 
+_MIN_RENDER_FONT_SIZE = 6.0  # Floor for rendered text — prevents invisible output
+
+
 def _draw_text(
     c: Canvas,
     x: float,
@@ -146,11 +149,11 @@ def _draw_text(
     """Draw text on the canvas with the given font spec or explicit params."""
     if font_spec is not None:
         fname = _resolve_font(font_spec.family, font_spec.weight)
-        fsize = font_spec.size
+        fsize = max(font_spec.size, _MIN_RENDER_FONT_SIZE)
         fcolor = font_spec.color
     else:
         fname = font_name
-        fsize = font_size
+        fsize = max(font_size, _MIN_RENDER_FONT_SIZE)
         fcolor = color
 
     c.setFont(fname, fsize)
