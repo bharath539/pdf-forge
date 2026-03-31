@@ -1,0 +1,11 @@
+backend:
+  - changed-files:
+      - any-glob-to-any-file: "backend/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: "frontend/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: "docs/**"
