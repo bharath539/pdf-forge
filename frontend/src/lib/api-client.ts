@@ -27,30 +27,14 @@ export interface LearnResponse {
 }
 
 export interface GenerateParams {
-  format_id: string;
-  months?: number;
-  transactions_per_month?: number;
+  schema_id: string;
+  scenario?: string;
   start_date?: string;
-  seed?: number;
-}
-
-export interface GenerateResponse {
-  pdf_url: string;
-  pages: number;
-  transactions: number;
-}
-
-export interface BatchGenerateParams {
-  format_id: string;
-  count: number;
   months?: number;
-  transactions_per_month?: number;
-}
-
-export interface BatchGenerateResponse {
-  job_id: string;
-  status: string;
-  files: string[];
+  transactions_per_month?: { min: number; max: number };
+  opening_balance?: string;
+  include_edge_cases?: boolean;
+  seed?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,32 +109,49 @@ export async function deleteFormat(id: string): Promise<void> {
   await request<void>(`/api/formats/${id}`, { method: "DELETE" });
 }
 
-/** Generate a single synthetic PDF. */
-export async function generate(
-  params: GenerateParams,
-): Promise<GenerateResponse> {
-  return request<GenerateResponse>("/api/generate", {
+/** Generate a single synthetic PDF. Returns a Blob. */
+export async function generate(params: GenerateParams): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}/api/generate`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "Unknown error");
+    throw new ApiError(res.status, body);
+  }
+  return res.blob();
 }
 
-/** Generate a preview (single page, watermarked). */
-export async function generatePreview(
-  params: GenerateParams,
-): Promise<GenerateResponse> {
-  return request<GenerateResponse>("/api/generate/preview", {
+/** Generate a preview (first page only). Returns a Blob. */
+export async function generatePreview(params: GenerateParams): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}/api/generate/preview`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "Unknown error");
+    throw new ApiError(res.status, body);
+  }
+  return res.blob();
 }
 
-/** Start a batch generation job. */
-export async function generateBatch(
-  params: BatchGenerateParams,
-): Promise<BatchGenerateResponse> {
-  return request<BatchGenerateResponse>("/api/generate/batch", {
+/** Generate multiple scenario PDFs as a zip. Returns a Blob. */
+export async function generateBatch(params: {
+  schema_id: string;
+  scenarios: string[];
+  start_date?: string;
+  seed?: number | null;
+}): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}/api/generate/batch`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "Unknown error");
+    throw new ApiError(res.status, body);
+  }
+  return res.blob();
 }

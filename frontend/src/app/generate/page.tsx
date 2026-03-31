@@ -103,12 +103,26 @@ function GeneratePageInner() {
   // -- Build API payload --
   function buildPayload(): GenerateParams {
     return {
-      format_id: selectedFormatId,
+      schema_id: selectedFormatId,
+      scenario: selectedScenario ?? "single_month",
       months: params.months,
-      transactions_per_month: params.txMin,
+      transactions_per_month: { min: params.txMin, max: params.txMax },
       start_date: params.startDate,
-      seed: params.seed ? parseInt(params.seed) : undefined,
+      opening_balance: params.openingBalance,
+      include_edge_cases: params.includeEdgeCases,
+      seed: params.seed ? parseInt(params.seed) : null,
     };
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   // -- Handlers --
@@ -118,20 +132,15 @@ function GeneratePageInner() {
     setError(null);
     setResult(null);
     try {
-      const res = await generate(buildPayload());
+      const blob = await generate(buildPayload());
       const filename = `statement-${selectedScenario}-${Date.now()}.pdf`;
+      const sizeKb = (blob.size / 1024).toFixed(1);
       setResult({
         filename,
-        size: `${res.pages} page${res.pages !== 1 ? "s" : ""}, ${res.transactions} transactions`,
-        url: res.pdf_url,
+        size: `${sizeKb} KB`,
+        url: URL.createObjectURL(blob),
       });
-      // Trigger download
-      const a = document.createElement("a");
-      a.href = res.pdf_url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      triggerDownload(blob, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -145,8 +154,8 @@ function GeneratePageInner() {
     setError(null);
     setPreviewUrl(null);
     try {
-      const res = await generatePreview(buildPayload());
-      setPreviewUrl(res.pdf_url);
+      const blob = await generatePreview(buildPayload());
+      setPreviewUrl(URL.createObjectURL(blob));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Preview failed");
     } finally {
@@ -159,26 +168,20 @@ function GeneratePageInner() {
     setBatching(true);
     setError(null);
     try {
-      const res = await generateBatch({
-        format_id: selectedFormatId,
-        count: SCENARIOS.length,
-        months: params.months,
-        transactions_per_month: params.txMin,
+      const blob = await generateBatch({
+        schema_id: selectedFormatId,
+        scenarios: SCENARIOS.map((s) => s.key),
+        start_date: params.startDate,
+        seed: params.seed ? parseInt(params.seed) : null,
       });
-      // If the API returns files, trigger a download for the first one
-      if (res.files && res.files.length > 0) {
-        const a = document.createElement("a");
-        a.href = res.files[0];
-        a.download = `batch-${Date.now()}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
+      const filename = `batch-${Date.now()}.zip`;
+      const sizeMb = (blob.size / (1024 * 1024)).toFixed(1);
       setResult({
-        filename: `batch-${Date.now()}.zip`,
-        size: `${res.files.length} files`,
-        url: res.files[0] || "",
+        filename,
+        size: `${sizeMb} MB`,
+        url: URL.createObjectURL(blob),
       });
+      triggerDownload(blob, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Batch generation failed");
     } finally {
