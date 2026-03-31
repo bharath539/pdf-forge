@@ -16,8 +16,8 @@ from reportlab.lib.colors import HexColor, Color
 from reportlab.lib.units import inch
 from reportlab.pdfgen.canvas import Canvas
 
-from backend.app.models.generation import GenerationParams, Scenario
-from backend.app.models.schema import (
+from app.models.generation import GenerationParams, Scenario
+from app.models.schema import (
     FontRole,
     FontSpec,
     FormatSchema,
@@ -27,7 +27,7 @@ from backend.app.models.schema import (
     SectionType,
     TableColumn,
 )
-from backend.app.services.data_faker import TransactionFaker, Transaction
+from app.services.data_faker import TransactionFaker, Transaction
 
 
 # ---------------------------------------------------------------------------
@@ -521,7 +521,7 @@ class SyntheticGenerator:
             fields = summary_sec.fields
         else:
             # Built-in default fields
-            from backend.app.models.schema import SummaryField
+            from app.models.schema import SummaryField
             fields = [
                 SummaryField(role="account_number_masked", label="Account Number:", format="text"),
                 SummaryField(role="opening_balance", label="Opening Balance:", format="$#,##0.00"),

@@ -1,7 +1,12 @@
 """Database connection pool management using asyncpg."""
 
+import asyncio
+import logging
+
 import asyncpg
-from app.config import get_settings
+from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 _pool: asyncpg.Pool | None = None
 
@@ -10,11 +15,13 @@ async def get_pool() -> asyncpg.Pool:
     """Get or create the connection pool."""
     global _pool
     if _pool is None:
-        settings = get_settings()
-        _pool = await asyncpg.create_pool(
-            dsn=settings.DATABASE_URL,
-            min_size=2,
-            max_size=10,
+        _pool = await asyncio.wait_for(
+            asyncpg.create_pool(
+                dsn=settings.DATABASE_URL,
+                min_size=1,
+                max_size=10,
+            ),
+            timeout=10,
         )
     return _pool
 

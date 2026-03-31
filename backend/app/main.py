@@ -12,7 +12,11 @@ from app.routers import health, learn, formats, generate
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle handler."""
     # Startup: initialize DB connection pool and run migrations
-    await run_migrations()
+    try:
+        await run_migrations()
+    except Exception as e:
+        import logging
+        logging.warning(f"Database not available on startup: {e}")
     yield
     # Shutdown: close DB connection pool
     await close_pool()

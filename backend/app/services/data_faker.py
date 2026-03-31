@@ -10,8 +10,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from faker import Faker
 
-from backend.app.models.generation import GenerationParams, Scenario
-from backend.app.models.schema import DescriptionPattern
+from app.models.generation import GenerationParams, Scenario
+from app.models.schema import DescriptionPattern
 
 
 # ---------------------------------------------------------------------------
