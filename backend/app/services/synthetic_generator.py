@@ -14,6 +14,7 @@ from typing import Any
 
 from reportlab.lib.colors import HexColor, Color
 from reportlab.lib.units import inch
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen.canvas import Canvas
 
 from app.models.generation import GenerationParams, Scenario
@@ -375,6 +376,13 @@ class SyntheticGenerator:
 
         # --- Render account summary ---
         summary_sec = sections_by_type.get(SectionType.ACCOUNT_SUMMARY)
+        # Section header bar
+        summary_label = f"{schema.account_type.value.replace('_', ' ').title()}"
+        if schema.bank_name and schema.bank_name != "Detected Bank":
+            summary_label = f"{schema.bank_name.split(',')[0]} {summary_label}"
+        current_y = self._render_section_label(
+            c, margins, page_width, current_y, summary_label.upper(),
+        )
         current_y = self._render_account_summary(
             c, summary_sec, margins, summary,
             acct_number, current_y, date_fmt, amount_fmt,
@@ -385,6 +393,11 @@ class SyntheticGenerator:
         table_sec = sections_by_type.get(SectionType.TRANSACTION_TABLE)
         footer_sec = sections_by_type.get(SectionType.FOOTER)
 
+        # Section header bar for transactions
+        current_y = self._render_section_label(
+            c, margins, page_width, current_y, "TRANSACTION DETAIL",
+        )
+
         # Draw column headers
         current_y = self._render_table_headers(c, table_sec, margins, current_y)
 
@@ -392,6 +405,28 @@ class SyntheticGenerator:
                       else _DEFAULT_ROW_HEIGHT)
         min_rows = page_break_rules.min_rows_before_break
         bottom_limit = margins.bottom + _FOOTER_HEIGHT
+
+        # --- Beginning Balance row ---
+        columns = self._get_columns(table_sec, margins)
+        tb_font = self._font_cache.get(FontRole.TABLE_BODY)
+        if columns and len(columns) >= 2:
+            # Description column (second column usually)
+            desc_col = columns[1] if len(columns) > 1 else columns[0]
+            _draw_text(
+                c, desc_col.x_start, current_y, "Beginning Balance",
+                font_spec=None,
+                font_name="Helvetica-Bold", font_size=8,
+            )
+            # Balance in rightmost column
+            balance_col = columns[-1]
+            opening_str = format_amount(summary["opening_balance"], amount_fmt)
+            _draw_text(
+                c, balance_col.x_end, current_y, opening_str,
+                font_spec=None,
+                font_name="Helvetica-Bold", font_size=8,
+                alignment="right",
+            )
+            current_y -= row_height
 
         for idx, tx in enumerate(transactions):
             # Check if we need a page break
@@ -427,6 +462,24 @@ class SyntheticGenerator:
                 c, table_sec, margins, tx, current_y,
                 row_height, date_fmt, amount_fmt,
             )
+
+        # --- Ending Balance row ---
+        if columns and len(columns) >= 2:
+            desc_col = columns[1] if len(columns) > 1 else columns[0]
+            _draw_text(
+                c, desc_col.x_start, current_y, "Ending Balance",
+                font_spec=None,
+                font_name="Helvetica-Bold", font_size=8,
+            )
+            balance_col = columns[-1]
+            closing_str = format_amount(summary["closing_balance"], amount_fmt)
+            _draw_text(
+                c, balance_col.x_end, current_y, closing_str,
+                font_spec=None,
+                font_name="Helvetica-Bold", font_size=8,
+                alignment="right",
+            )
+            current_y -= row_height
 
         # --- Render footer on last page ---
         self._render_footer(
@@ -501,6 +554,39 @@ class SyntheticGenerator:
 
         return rule_y - 12
 
+    def _render_section_label(
+        self,
+        c: Canvas,
+        margins: Margins,
+        page_width: float,
+        y: float,
+        label: str,
+        bg_color: str = "#333333",
+        text_color: str = "#FFFFFF",
+    ) -> float:
+        """Draw a section header bar with dark background and white text."""
+        bar_height = 20
+        bar_x = margins.left
+        bar_width = page_width - margins.left - margins.right
+        bar_y = y - bar_height
+
+        # Draw background rectangle
+        c.setFillColor(_hex_to_color(bg_color))
+        c.rect(bar_x, bar_y, bar_width, bar_height, stroke=0, fill=1)
+
+        # Draw label text
+        header_font = self._font_cache.get(FontRole.HEADER)
+        c.setFillColor(_hex_to_color(text_color))
+        fname = "Helvetica-Bold"
+        fsize = 11
+        if header_font:
+            fname = _resolve_font(header_font.family, "bold")
+            fsize = max(header_font.size, _MIN_RENDER_FONT_SIZE)
+        c.setFont(fname, fsize)
+        c.drawString(bar_x + 6, bar_y + 5, label)
+
+        return bar_y - 8
+
     def _render_account_summary(
         self,
         c: Canvas,
@@ -518,21 +604,25 @@ class SyntheticGenerator:
         body_font = self._font_cache.get(FontRole.BODY)
         line_height = 16
 
-        # Default fields if section has none
+        # Default fields — used when section has no fields or no fields match known roles
+        from app.models.schema import SummaryField
+        default_fields = [
+            SummaryField(role="opening_balance", label="Beginning Balance", format="$#,##0.00"),
+            SummaryField(role="total_deposits", label="Deposits and Additions", format="$#,##0.00"),
+            SummaryField(role="total_withdrawals", label="Electronic Withdrawals", format="$#,##0.00"),
+            SummaryField(role="closing_balance", label="Ending Balance", format="$#,##0.00"),
+        ]
+
         fields = []
         if summary_sec and summary_sec.fields:
-            fields = summary_sec.fields
+            # Check if any fields have roles that map to our value_map
+            known_roles = {"account_number_masked", "opening_balance", "closing_balance",
+                           "total_deposits", "total_withdrawals", "num_transactions",
+                           "statement_period"}
+            matched = [f for f in summary_sec.fields if f.role in known_roles]
+            fields = matched if matched else default_fields
         else:
-            # Built-in default fields
-            from app.models.schema import SummaryField
-            fields = [
-                SummaryField(role="account_number_masked", label="Account Number:", format="text"),
-                SummaryField(role="opening_balance", label="Opening Balance:", format="$#,##0.00"),
-                SummaryField(role="closing_balance", label="Closing Balance:", format="$#,##0.00"),
-                SummaryField(role="total_deposits", label="Total Deposits:", format="$#,##0.00"),
-                SummaryField(role="total_withdrawals", label="Total Withdrawals:", format="$#,##0.00"),
-                SummaryField(role="num_transactions", label="Number of Transactions:", format="integer"),
-            ]
+            fields = default_fields
 
         # Map role names to values
         value_map: dict[str, str] = {
@@ -618,10 +708,28 @@ class SyntheticGenerator:
         col_values = self._map_tx_to_columns(tx, columns, date_fmt, amount_fmt)
 
         for col, val in zip(columns, col_values):
-            # Truncate if max_chars specified
             display_val = val
-            if col.max_chars and len(val) > col.max_chars:
-                display_val = val[: col.max_chars - 3] + "..."
+            col_width = col.x_end - col.x_start
+
+            # Determine font for width measurement
+            if tb_font:
+                fname = _resolve_font(tb_font.family, tb_font.weight)
+                fsize = max(tb_font.size, _MIN_RENDER_FONT_SIZE)
+            else:
+                fname = "Helvetica"
+                fsize = 8
+
+            # Truncate to fit column width (pixel-based)
+            if col_width > 0 and display_val:
+                text_w = stringWidth(display_val, fname, fsize)
+                avail = col_width - 4  # 4pt padding
+                if text_w > avail and avail > 0:
+                    # Proportional estimate then trim
+                    est_chars = max(1, int(len(display_val) * avail / text_w) - 3)
+                    display_val = display_val[:est_chars]
+                    while len(display_val) > 0 and stringWidth(display_val + "...", fname, fsize) > avail:
+                        display_val = display_val[:-1]
+                    display_val = display_val.rstrip() + "..."
 
             # Color negative amounts red
             text_color = "#000000"

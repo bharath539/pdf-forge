@@ -49,7 +49,9 @@ _DATE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 _AMOUNT_RE = re.compile(
-    r"^[\$\€\£]?\s*[\-\(]?\s*\d{1,3}(?:[,\.]\d{3})*(?:\.\d{1,2})?\s*[\)\-]?$"
+    r"^\s*[\(\-]?\s*[\$\€\£]?\s*[\-]?\s*"
+    r"\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?"
+    r"\s*[\)\-]?\s*$"
 )
 
 # Common description prefixes used by US banks
@@ -57,51 +59,81 @@ _DESC_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     (
         "debit_card",
         re.compile(
-            r"^(DEBIT\s+CARD\s+PURCHASE\s*[-–—]\s*)(.+?)\s+([A-Z]{2,})\s+([A-Z]{2})$"
+            r"^(DEBIT\s+CARD\s+PURCHASE\s*[-–—]\s*)(.+?)\s+([A-Za-z]{2,})\s+([A-Za-z]{2})$",
+            re.IGNORECASE,
         ),
         "DEBIT CARD PURCHASE - {merchant} {city} {state}",
     ),
     (
         "debit_card",
-        re.compile(r"^(POS\s+PURCHASE\s*[-–—]\s*)(.+)"),
+        re.compile(r"^(POS\s+PURCHASE\s*[-–—]\s*)(.+)", re.IGNORECASE),
         "POS PURCHASE - {merchant}",
     ),
     (
         "ach",
-        re.compile(r"^(ACH\s+)(CREDIT|DEBIT)\s+(.+)"),
+        re.compile(r"^(ACH\s+)(CREDIT|DEBIT)\s+(.+)", re.IGNORECASE),
         "ACH {direction} {originator}",
     ),
     (
         "check",
-        re.compile(r"^(CHECK\s*#?\s*)(\d+)"),
+        re.compile(r"^(CHECK\s*#?\s*)(\d+)", re.IGNORECASE),
         "CHECK #{number}",
     ),
     (
         "transfer",
-        re.compile(
-            r"^(ONLINE\s+TRANSFER\s+)(TO|FROM)\s+(.+)"
-        ),
+        re.compile(r"^(ONLINE\s+TRANSFER\s+)(TO|FROM)\s+(.+)", re.IGNORECASE),
         "ONLINE TRANSFER {direction} {account_ref}",
     ),
     (
         "transfer",
-        re.compile(r"^(WIRE\s+TRANSFER\s*[-–—]?\s*)(.+)"),
+        re.compile(r"^(WIRE\s+TRANSFER\s*[-–—]?\s*)(.+)", re.IGNORECASE),
         "WIRE TRANSFER - {details}",
     ),
     (
         "atm",
-        re.compile(r"^(ATM\s+)(WITHDRAWAL|DEPOSIT)\s*[-–—]?\s*(.*)"),
+        re.compile(r"^(ATM\s+)(WITHDRAWAL|DEPOSIT)\s*[-–—]?\s*(.*)", re.IGNORECASE),
         "ATM {action} - {location}",
     ),
     (
         "direct_deposit",
-        re.compile(r"^(DIRECT\s+DEP(?:OSIT)?\s*)(.+)"),
+        re.compile(r"^(DIRECT\s+DEP(?:OSIT)?\s*)(.+)", re.IGNORECASE),
         "DIRECT DEPOSIT {originator}",
     ),
     (
         "fee",
-        re.compile(r"^((?:MONTHLY\s+)?(?:SERVICE\s+)?FEE)"),
+        re.compile(r"^((?:MONTHLY\s+)?(?:SERVICE\s+)?FEE)", re.IGNORECASE),
         "{fee_type} FEE",
+    ),
+    (
+        "zelle",
+        re.compile(
+            r"^(Zelle\s+(?:Payment|Transfer)\s+(?:To|From))\s+(.+?)(?:\s+(\d+))?\s*$",
+            re.IGNORECASE,
+        ),
+        "Zelle {direction} {name} {ref}",
+    ),
+    (
+        "payroll",
+        re.compile(r"^(.+?),?\s+Payroll\s+PPD\s+ID:\s*(\S+)", re.IGNORECASE),
+        "{originator}, Payroll PPD ID: {id}",
+    ),
+    (
+        "autopay",
+        re.compile(
+            r"^(.+?)\s+(?:Credit\s+Crd|Credit\s+Card)\s+Autopay\s+PPD\s+ID:\s*(\S+)",
+            re.IGNORECASE,
+        ),
+        "{originator} Credit Crd Autopay PPD ID: {id}",
+    ),
+    (
+        "web_payment",
+        re.compile(r"^(.+?)\s+Web\s+ID:\s*(\S+)", re.IGNORECASE),
+        "{originator} Web ID: {id}",
+    ),
+    (
+        "ppd",
+        re.compile(r"^(.+?)\s+PPD\s+ID:\s*(\S+)", re.IGNORECASE),
+        "{originator} PPD ID: {id}",
     ),
 ]
 
@@ -137,6 +169,28 @@ def _font_weight(fontname: str) -> str:
         return "normal"  # italic is style, not weight
     return "normal"
 
+
+_KNOWN_BANK_NAMES = {
+    "chase", "jpmorgan chase", "jp morgan", "bank of america",
+    "wells fargo", "citibank", "citi", "capital one", "us bank",
+    "u.s. bank", "pnc", "truist", "td bank", "ally", "discover",
+    "american express", "amex", "usaa", "navy federal",
+    "schwab", "charles schwab", "fidelity", "goldman sachs",
+    "marcus", "sofi", "chime", "huntington", "regions", "fifth third",
+    "citizens", "key bank", "m&t bank", "synchrony", "barclays",
+}
+
+_DATE_LINE_RE = re.compile(
+    r"(january|february|march|april|may|june|july|august|september|"
+    r"october|november|december|\d{1,2}/\d{1,2}/\d{2,4}|through|thru)",
+    re.IGNORECASE,
+)
+
+_ADDRESS_LINE_RE = re.compile(
+    r"\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|"
+    r"MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|"
+    r"TN|TX|UT|VT|VA|WA|WV|WI|WY)\s+\d{5}",
+)
 
 _KNOWN_FONT_FAMILIES = {
     "helvetica", "arial", "courier", "times", "times new roman",
@@ -585,27 +639,64 @@ class FormatLearner:
         try:
             header_end = sections[0].y_end if sections and sections[0].y_end else layout.margins.top + 80
             summary_y_start = header_end
-            summary_y_end = header_end + page_h * 0.15
+            summary_y_end = header_end + page_h * 0.25
+
+            # Known financial summary roles — only keep fields matching these
+            _KNOWN_SUMMARY_ROLES = {
+                "opening_balance", "closing_balance", "account_number_masked",
+                "statement_period", "payment_due_date", "minimum_payment",
+                "credit_limit", "total_deposits", "total_withdrawals",
+                "new_balance", "previous_balance", "available_credit",
+                "purchases", "cash_advances", "fees", "interest_charged",
+            }
 
             # Look for label-value pairs (two text clusters on the same line)
             summary_fields: list[SummaryField] = []
             for y_pos, line_chars in sorted(line_groups.items()):
                 if summary_y_start <= y_pos <= summary_y_end:
-                    # Split line into left (label) and right (value) by large x gap
                     sorted_chars = sorted(line_chars, key=lambda c: float(c["x0"]))
-                    text = "".join(c.get("text", "") for c in sorted_chars)
+                    words = self._chars_to_words(sorted_chars)
+                    full_text = " ".join(w["text"] for w in words)
 
-                    # Detect key-value with colon
-                    if ":" in text:
-                        parts = text.split(":", 1)
+                    # Skip form markers and hidden fields
+                    if full_text.startswith("*") or full_text.startswith("_"):
+                        continue
+
+                    # Method 1: Colon-separated key-value
+                    if ":" in full_text:
+                        parts = full_text.split(":", 1)
                         label = parts[0].strip()
-                        # Classify the role
                         role = self._classify_summary_role(label)
                         fmt = self._infer_summary_format(role)
                         if role and label:
                             summary_fields.append(SummaryField(
                                 role=role, label=label, format=fmt
                             ))
+                        continue
+
+                    # Method 2: Large x-gap between word groups (>50pt)
+                    if len(words) >= 2:
+                        max_gap = 0.0
+                        split_idx = -1
+                        for wi in range(len(words) - 1):
+                            gap = words[wi + 1]["x0"] - words[wi]["x1"]
+                            if gap > max_gap:
+                                max_gap = gap
+                                split_idx = wi
+                        if max_gap > 50 and split_idx >= 0:
+                            label = " ".join(w["text"] for w in words[:split_idx + 1]).strip()
+                            role = self._classify_summary_role(label)
+                            fmt = self._infer_summary_format(role)
+                            if role and label and len(label) > 2:
+                                summary_fields.append(SummaryField(
+                                    role=role, label=label, format=fmt
+                                ))
+
+            # Filter: only keep fields with recognized financial roles
+            summary_fields = [
+                f for f in summary_fields
+                if f.role in _KNOWN_SUMMARY_ROLES
+            ]
 
             if summary_fields:
                 sections.append(Section(
@@ -682,7 +773,17 @@ class FormatLearner:
             if not headers_row or all(h is None for h in headers_row):
                 continue
 
-            headers = [str(h).strip() if h else f"col_{i}" for i, h in enumerate(headers_row)]
+            # Filter out None/empty headers, tracking original indices
+            valid_cols: list[tuple[int, str]] = []
+            for i, h in enumerate(headers_row):
+                text = str(h).strip() if h else ""
+                if text:
+                    valid_cols.append((i, text))
+
+            if not valid_cols:
+                continue
+
+            headers = [vc[1] for vc in valid_cols]
             logger.info("Table headers detected via pdfplumber: %s", headers)
 
             # Find table bounding box using page.find_tables()
@@ -692,21 +793,37 @@ class FormatLearner:
             largest_ft = max(found_tables, key=lambda t: (t.bbox[3] - t.bbox[1]) * (t.bbox[2] - t.bbox[0]))
             bbox = largest_ft.bbox  # (x0, top, x1, bottom)
 
-            # Build columns
-            n_cols = len(headers)
+            # Build column boundaries from actual cell positions if available
+            n_valid = len(valid_cols)
             table_width = bbox[2] - bbox[0]
-            col_width = table_width / max(n_cols, 1)
+            col_boundaries: list[tuple[float, float]] = []
+            try:
+                if largest_ft.cells:
+                    # Extract unique x-boundaries from cells
+                    all_x = sorted(set(cell[0] for cell in largest_ft.cells) | set(cell[2] for cell in largest_ft.cells))
+                    if len(all_x) >= n_valid + 1:
+                        for idx in range(min(n_valid, len(all_x) - 1)):
+                            col_boundaries.append((round(all_x[idx], 1), round(all_x[idx + 1], 1)))
+            except Exception:
+                pass
+
+            if len(col_boundaries) != n_valid:
+                # Fallback: equal division
+                col_w = table_width / max(n_valid, 1)
+                col_boundaries = [
+                    (round(bbox[0] + i * col_w, 1), round(bbox[0] + (i + 1) * col_w, 1))
+                    for i in range(n_valid)
+                ]
 
             columns: list[TableColumn] = []
-            for i, header in enumerate(headers):
-                x_start = round(bbox[0] + i * col_width, 1)
-                x_end = round(bbox[0] + (i + 1) * col_width, 1)
+            for idx, (orig_i, header) in enumerate(valid_cols):
+                x_start, x_end = col_boundaries[idx]
 
-                # Sample values for this column (skip header row)
+                # Sample values using original column index
                 col_vals = [
-                    str(row[i]).strip()
+                    str(row[orig_i]).strip()
                     for row in table[1:]
-                    if row and i < len(row) and row[i]
+                    if row and orig_i < len(row) and row[orig_i]
                 ]
                 # Store for pattern detection, then determine format
                 table_values[header] = col_vals[:50]  # cap samples
@@ -723,6 +840,26 @@ class FormatLearner:
                     max_chars=max_chars if col_format == "text" else None,
                     alignment=alignment,
                 ))
+
+            # Post-validate: remove mostly-empty columns
+            validated_columns: list[TableColumn] = []
+            for col in columns:
+                vals = table_values.get(col.header, [])
+                if not vals:
+                    validated_columns.append(col)
+                    continue
+                non_empty = sum(1 for v in vals if v.strip())
+                if non_empty / len(vals) >= 0.2:
+                    validated_columns.append(col)
+                else:
+                    logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, (1 - non_empty / len(vals)) * 100)
+                    table_values.pop(col.header, None)
+            columns = validated_columns
+
+            # Cap at 8 columns max for bank statements
+            if len(columns) > 8:
+                logger.warning("Table has %d columns; capping at 8", len(columns))
+                columns = columns[:8]
 
             # Estimate row height
             data_rows = table[1:]
@@ -810,8 +947,36 @@ class FormatLearner:
         if header_y is None:
             return None, table_values
 
+        # Refine column starts using only actual data rows (after header)
+        # This filters out phantom x-positions from footer/disclaimer text
+        data_x0_counter: Counter[int] = Counter()
+        data_row_count = 0
+        for y_pos, line_chars in sorted_lines:
+            if y_pos <= header_y:
+                continue
+            data_row_count += 1
+            words = self._chars_to_words(line_chars)
+            for w in words:
+                data_x0_counter[int(w["x0"])] += 1
+
+        if data_row_count >= 3:
+            # Re-cluster using only data row x-positions, require at least 30% of data rows
+            refined_starts = self._cluster_x_positions(data_x0_counter, tolerance=8)
+            min_count = max(3, int(data_row_count * 0.3))
+            refined_starts = [
+                x for x in refined_starts
+                if sum(data_x0_counter[p] for p in range(x - 8, x + 9) if p in data_x0_counter) >= min_count
+            ]
+            if len(refined_starts) >= 2:
+                col_starts = refined_starts
+
         # Build columns using detected x_starts
         col_starts_sorted = sorted(col_starts)
+
+        # Cap at 8 columns
+        if len(col_starts_sorted) > 8:
+            col_starts_sorted = col_starts_sorted[:8]
+
         columns: list[TableColumn] = []
         for i, x_start in enumerate(col_starts_sorted):
             x_end = col_starts_sorted[i + 1] if i + 1 < len(col_starts_sorted) else layout.width - layout.margins.right
@@ -827,7 +992,7 @@ class FormatLearner:
                     continue
                 words = self._chars_to_words(line_chars)
                 for w in words:
-                    if x_start - 5 <= w["x0"] <= x_start + x_end * 0.1:
+                    if x_start - 5 <= w["x0"] <= x_start + (x_end - x_start) * 0.3:
                         col_vals.append(w["text"])
                         break
                 if len(col_vals) >= 50:
@@ -846,6 +1011,20 @@ class FormatLearner:
                 max_chars=max_chars if col_format == "text" else None,
                 alignment=alignment,
             ))
+
+        # Post-validate: remove mostly-empty columns
+        validated_columns: list[TableColumn] = []
+        for col in columns:
+            vals = table_values.get(col.header, [])
+            if not vals:
+                continue  # No data = phantom
+            non_empty = sum(1 for v in vals if v.strip())
+            if non_empty / max(len(vals), 1) >= 0.2:
+                validated_columns.append(col)
+            else:
+                logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, (1 - non_empty / max(len(vals), 1)) * 100)
+                table_values.pop(col.header, None)
+        columns = validated_columns if validated_columns else columns
 
         # Estimate row height from line spacing
         data_ys = [y for y, _ in sorted_lines if y > header_y]
@@ -876,9 +1055,10 @@ class FormatLearner:
         seen_categories: set[str] = set()
 
         # Find the description column (usually named Description, Details, etc.)
+        desc_keywords = ("description", "details", "transaction", "memo", "payee", "narrative", "reference")
         desc_values: list[str] = []
         for header, vals in table_values.items():
-            if header.lower() in ("description", "details", "transaction", "memo", "payee"):
+            if any(kw in header.lower() for kw in desc_keywords):
                 desc_values = vals
                 break
         if not desc_values:
@@ -909,7 +1089,8 @@ class FormatLearner:
                 words = val.strip().split()
                 if len(words) >= 2:
                     prefix = " ".join(words[:2]).upper()
-                    prefix_counter[prefix] += 1
+                    if len(prefix) >= 5:
+                        prefix_counter[prefix] += 1
             for prefix, count in prefix_counter.most_common(5):
                 if count >= 2:
                     patterns.append(DescriptionPattern(
@@ -1001,26 +1182,38 @@ class FormatLearner:
         if not header_chars:
             return "Detected Bank"
 
-        # Group by lines and pick the line with the largest font
+        # Group by lines, build candidates sorted by font size descending
         line_groups = self._cluster_text_lines(header_chars)
-        best_line = ""
-        best_size = 0.0
+        candidates: list[tuple[float, str]] = []
 
         for _y, line_chars in line_groups.items():
             avg_size = sum(float(c.get("size", 0)) for c in line_chars) / len(line_chars)
-            if avg_size > best_size:
-                best_size = avg_size
-                sorted_lc = sorted(line_chars, key=lambda c: float(c["x0"]))
-                best_line = "".join(c.get("text", "") for c in sorted_lc).strip()
+            words = self._chars_to_words(sorted(line_chars, key=lambda c: float(c["x0"])))
+            text = " ".join(w["text"] for w in words).strip()
+            candidates.append((avg_size, text))
 
-        # Sanitize: take only the first few words, remove anything that looks like data
-        if best_line:
-            # Cap at 40 chars, strip digits that could be account data
-            name = best_line[:40].strip()
+        candidates.sort(key=lambda t: t[0], reverse=True)
+
+        for _size, text in candidates:
+            if not text or len(text) < 2:
+                continue
+            # Skip lines that are clearly dates or addresses
+            if _DATE_LINE_RE.search(text):
+                continue
+            if _ADDRESS_LINE_RE.search(text):
+                continue
+            # Skip lines that look like account numbers or PII
+            if re.search(r"\d{6,}", text):
+                continue
+
+            name = text[:40].strip()
             # Remove trailing numbers/dates
             name = re.sub(r"\s+\d[\d/\-\.]+\s*$", "", name).strip()
-            if name:
-                return name
+
+            if not name or len(name) < 2:
+                continue
+
+            return name
 
         return "Detected Bank"
 
@@ -1173,6 +1366,16 @@ class FormatLearner:
             "amount", "debit", "credit", "balance",
             "withdrawal", "deposit", "charge", "payment",
         )):
+            # Verify with sample values — don't trust header alone
+            sample = [v for v in values[:20] if v.strip()]
+            if sample:
+                match_count = sum(1 for v in sample if _is_amount(v))
+                if match_count / len(sample) < 0.3:
+                    logger.info(
+                        "Header '%s' suggests amount but only %d/%d values match; returning 'text'",
+                        header, match_count, len(sample),
+                    )
+                    return "text"
             amt_info = _detect_amount_format(values)
             symbol = amt_info.get("currency_symbol", "$")
             return f"{symbol}#,##0.00"
