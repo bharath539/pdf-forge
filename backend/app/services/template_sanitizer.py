@@ -1,7 +1,8 @@
 """Template Sanitizer — strips PII from classified templates before storage.
 
 For data placeholder elements: replaces text with typed placeholder strings.
-For structural elements: verifies no PII leaked through.
+For structural elements: promotes detected PII to data placeholders so the
+renderer can fill them with fake values (rather than destroying the text).
 """
 
 from __future__ import annotations
@@ -18,16 +19,19 @@ from app.models.template import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# PII detection regexes (for structural elements that might have leaked PII)
+# PII detection regexes — only truly personal identifiers, NOT bank info
 # ---------------------------------------------------------------------------
 
-_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
-    ("credit_card", re.compile(r"\b(?:\d{4}[\s\-]?){3}\d{4}\b")),
-    ("email", re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b")),
-    ("phone", re.compile(r"\b(?:\(\d{3}\)|\d{3})[\s\-\.]?\d{3}[\s\-\.]?\d{4}\b")),
+_PII_PATTERNS: list[tuple[str, DataType, re.Pattern[str]]] = [
+    ("ssn", DataType.ACCOUNT_NUMBER, re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    (
+        "credit_card",
+        DataType.ACCOUNT_NUMBER,
+        re.compile(r"\b(?:\d{4}[\s\-]?){3}\d{4}\b"),
+    ),
     (
         "street",
+        DataType.ADDRESS,
         re.compile(
             r"\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+"
             r"(?:St|Dr|Ave|Blvd|Ln|Rd|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter)\b",
@@ -49,18 +53,22 @@ _PLACEHOLDERS: dict[DataType, str] = {
     DataType.REFERENCE: "{reference}",
 }
 
-REDACTED = "[REDACTED]"
-
 
 class TemplateSanitizer:
     """Strips PII from templates, replacing data with typed placeholders."""
 
     def sanitize(self, template: PDFTemplate) -> PDFTemplate:
-        """Replace data element text with placeholders and verify structural safety."""
+        """Replace data element text with placeholders.
+
+        Structural elements are left untouched — bank phone numbers,
+        legal text, and fixed addresses are part of the format, not user PII.
+        Only promote truly personal identifiers (SSN, full CC#, personal
+        street addresses that weren't already caught by the classifier).
+        """
         logger.info("Sanitizing template: %d text elements", len(template.text_elements))
 
         data_replaced = 0
-        structural_redacted = 0
+        structural_promoted = 0
 
         for te in template.text_elements:
             if te.element_type == ElementCategory.DATA_PLACEHOLDER:
@@ -71,21 +79,31 @@ class TemplateSanitizer:
                     te.text = "{data}"
                 data_replaced += 1
             else:
-                # Verify structural elements don't contain PII
-                if self._contains_pii(te.text):
-                    te.text = REDACTED
-                    structural_redacted += 1
+                # Only promote clear personal identifiers (SSN, full CC numbers,
+                # personal street addresses). Bank phone numbers and legal text
+                # are structural and should be preserved.
+                pii_type = self._detect_personal_pii(te.text)
+                if pii_type is not None:
+                    te.element_type = ElementCategory.DATA_PLACEHOLDER
+                    te.data_type = pii_type
+                    te.text = _PLACEHOLDERS[pii_type]
+                    structural_promoted += 1
 
         logger.info(
-            "Sanitization complete: %d data→placeholders, %d structural→redacted",
+            "Sanitization complete: %d data→placeholders, %d structural→promoted",
             data_replaced,
-            structural_redacted,
+            structural_promoted,
         )
         return template
 
-    def _contains_pii(self, text: str) -> bool:
-        """Check if text matches any PII pattern."""
-        for name, pattern in _PII_PATTERNS:
+    def _detect_personal_pii(self, text: str) -> DataType | None:
+        """Check if text contains a truly personal identifier.
+
+        Returns the DataType if found, None if the text is safe to keep.
+        Phone numbers and emails in structural text are assumed to be the
+        bank's contact info, not user PII.
+        """
+        for _name, data_type, pattern in _PII_PATTERNS:
             if pattern.search(text):
-                return True
-        return False
+                return data_type
+        return None

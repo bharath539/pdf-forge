@@ -160,6 +160,7 @@ class TransactionFaker:
         self,
         params: GenerationParams,
         description_patterns: list[DescriptionPattern],
+        account_type: str = "checking",
     ) -> list[Transaction]:
         """Generate a full list of transactions for the requested scenario."""
         periods = self.generate_statement_period(params.start_date, params.months)
@@ -184,7 +185,7 @@ class TransactionFaker:
             for tx_date, tx_type in zip(dates, types):
                 is_credit = self._should_be_credit(tx_type, params)
                 amount = self._generate_amount(is_credit, params)
-                desc = self._generate_description(tx_type, is_credit, pattern_map)
+                desc = self._generate_description(tx_type, is_credit, pattern_map, account_type)
 
                 balance += amount
                 all_transactions.append(
@@ -385,6 +386,7 @@ class TransactionFaker:
         tx_type: str,
         is_credit: bool,
         pattern_map: dict[str, str],
+        account_type: str = "checking",
     ) -> str:
         """Build a description string, using schema patterns when available."""
         placeholders = self._build_placeholders(tx_type, is_credit)
@@ -396,7 +398,13 @@ class TransactionFaker:
             except KeyError:
                 pass  # Fall through to defaults
 
-        # Default patterns
+        # Credit card statements use a different format:
+        # MERCHANT NAME              CITY         ST
+        # or MERCHANT NAME           PHONE        ST
+        if account_type == "credit_card":
+            return self._cc_description(tx_type, is_credit, placeholders)
+
+        # Default checking/savings patterns
         if tx_type == "debit_card":
             return f"DEBIT CARD PURCHASE - {placeholders['merchant']} {placeholders['city']} {placeholders['state']}"
         if tx_type == "ach":
@@ -411,6 +419,45 @@ class TransactionFaker:
             action = "DEPOSIT" if is_credit else "WITHDRAWAL"
             return f"ATM {action} - {placeholders['location']}"
         return "MISC TRANSACTION"
+
+    def _cc_description(
+        self,
+        tx_type: str,
+        is_credit: bool,
+        placeholders: dict[str, str],
+    ) -> str:
+        """Generate credit card statement style descriptions.
+
+        Format: 'MERCHANT NAME              CITY         ST'
+        Merchant and location are space-padded to fixed columns.
+        """
+        if tx_type == "debit_card" or (tx_type == "ach" and not is_credit):
+            merchant = placeholders["merchant"].upper()
+            city = placeholders["city"].upper()
+            state = placeholders["state"]
+            # Some CC statements show store numbers
+            if self._rng.random() < 0.3:
+                store_num = self._rng.randint(100, 9999)
+                merchant = f"{merchant} #{store_num}"
+            # Some show phone numbers instead of city
+            if self._rng.random() < 0.2:
+                phone = f"{self._rng.randint(100,999)}-{self._rng.randint(1000000,9999999)}"
+                location = f"{phone} {state}"
+            else:
+                location = f"{city} {state}"
+            # Pad merchant to ~20 chars, location fills the rest
+            return f"{merchant:<20s}{location}"
+        if tx_type == "ach" and is_credit:
+            return f"PAYMENT THANK YOU"
+        if tx_type == "transfer":
+            if is_credit:
+                return f"PAYMENT THANK YOU"
+            return f"CASH ADVANCE FEE"
+        if tx_type == "check":
+            return f"PAYMENT THANK YOU"
+        if tx_type == "atm":
+            return f"CASH ADVANCE {placeholders['city'].upper()} {placeholders['state']}"
+        return f"{placeholders['merchant'].upper():<20s}{placeholders['city'].upper()} {placeholders['state']}"
 
     def _build_placeholders(self, tx_type: str, is_credit: bool) -> dict[str, str]:
         """Return a dict of placeholder values usable for format-string substitution."""

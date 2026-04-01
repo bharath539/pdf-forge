@@ -88,6 +88,9 @@ def _font_weight(fontname: str) -> str:
     lower = fontname.lower()
     if "bold" in lower:
         return "bold"
+    # Convention: font names ending in 'B' are often bold variants (e.g. INTSTATB)
+    if fontname and fontname[-1] == "B" and fontname[:-1].isalpha():
+        return "bold"
     if "light" in lower or "thin" in lower:
         return "light"
     return "normal"
@@ -213,7 +216,30 @@ def _infer_account_type(bank_name: str, text_elements: list[TextElement]) -> Acc
 # TemplateExtractor
 # ---------------------------------------------------------------------------
 
-_MIN_FONT_SIZE = 3.0  # Ignore characters below this size
+_MIN_FONT_SIZE = 3.0  # Nominal minimum; see _effective_font_size for overrides
+_MIN_CHAR_WIDTH = 1.0  # Minimum char width to be considered visible
+
+
+def _effective_font_size(char: dict[str, Any]) -> float:
+    """Return the visual font size for a character.
+
+    Some PDFs encode visible text with a tiny reported font size (e.g. 0.2pt)
+    but normal character advance widths. Detect this case and estimate the
+    real rendering size from the character width.
+    """
+    size = float(char.get("size", 0))
+    if size >= _MIN_FONT_SIZE:
+        return size
+
+    # If the char has a normal width despite tiny size, it's likely visible
+    # text rendered with unusual font metrics.  Estimate font size from
+    # the advance width: typical proportional fonts have avg char width ≈ 0.5-0.6 × size.
+    width = float(char.get("width", 0)) or (float(char.get("x1", 0)) - float(char.get("x0", 0)))
+    if width >= _MIN_CHAR_WIDTH:
+        # Estimate: size ≈ width / 0.55 (average char width ratio)
+        return round(width / 0.55, 1)
+
+    return size
 
 
 class TemplateExtractor:
@@ -240,8 +266,10 @@ class TemplateExtractor:
 
                 # --- Extract text elements (grouped into words) ---
                 chars = page.chars or []
-                # Filter out invisible/tiny characters
-                visible_chars = [c for c in chars if float(c.get("size", 0)) >= _MIN_FONT_SIZE]
+                # Filter out truly invisible characters: both size AND width must be tiny
+                visible_chars = [
+                    c for c in chars if _effective_font_size(c) >= _MIN_FONT_SIZE
+                ]
 
                 line_groups = _cluster_lines(visible_chars)
                 for y_pos, line_chars in sorted(line_groups.items()):
@@ -250,6 +278,25 @@ class TemplateExtractor:
                         text = w["text"].strip()
                         if not text:
                             continue
+                        # Use effective font size (handles tiny-encoded text)
+                        font_size = w["size"]
+                        is_micro = font_size < _MIN_FONT_SIZE
+                        if is_micro:
+                            avg_char_w = (w["x1"] - w["x0"]) / max(len(text), 1)
+                            font_size = _effective_font_size(
+                                {"size": font_size, "width": avg_char_w}
+                            )
+                            # Skip garbled micro-text: micro-encoded legal boilerplate
+                            # has CamelCase concatenated words (e.g.
+                            # "InformationAboutYourAccount") or long runs without
+                            # spaces.  Keep real words, amounts, and dates.
+                            import re
+                            if " " not in text and len(text) > 3:
+                                # Detect CamelCase concatenation: lowercase→uppercase
+                                has_camel = bool(re.search(r"[a-z][A-Z]", text))
+                                is_long_garbled = len(text) > 30
+                                if has_camel or is_long_garbled:
+                                    continue
                         text_elements.append(
                             TextElement(
                                 page=page_idx,
@@ -257,7 +304,7 @@ class TemplateExtractor:
                                 y=round(w["top"], 2),
                                 text=text,
                                 font_family=_clean_font_family(w["fontname"]),
-                                font_size=round(w["size"], 1),
+                                font_size=round(font_size, 1),
                                 font_weight=_font_weight(w["fontname"]),
                                 color=_hex_color(w["color"]),
                                 width=round(w["x1"] - w["x0"], 2),
@@ -296,14 +343,32 @@ class TemplateExtractor:
                     )
 
                 # --- Extract images (bounding boxes only) ---
+                page_h = float(page.height)
                 for img in page.images or []:
+                    x0 = round(float(img["x0"]), 2)
+                    y0 = round(float(img["top"]), 2)
+                    x1 = round(float(img["x1"]), 2)
+                    y1 = round(float(img["bottom"]), 2)
+                    w = x1 - x0
+                    h = y1 - y0
+
+                    # Skip tiny images (1px lines, spacer pixels)
+                    if w < 3 or h < 3:
+                        continue
+
+                    # Only render placeholder for meaningful images;
+                    # small decorative images (icons, bullets) are kept
+                    # but not rendered as gray boxes.
+                    is_meaningful = w > 20 and h > 15
+
                     image_elements.append(
                         ImageElement(
                             page=page_idx,
-                            x0=round(float(img["x0"]), 2),
-                            y0=round(float(img["top"]), 2),
-                            x1=round(float(img["x1"]), 2),
-                            y1=round(float(img["bottom"]), 2),
+                            x0=x0,
+                            y0=y0,
+                            x1=x1,
+                            y1=y1,
+                            placeholder=is_meaningful,
                         )
                     )
 

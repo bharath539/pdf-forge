@@ -115,6 +115,13 @@ _STRUCTURAL_LABELS = {
     "posting date",
     "type",
     "category",
+    "standard purchases",
+    "cardholder summary",
+    "account summary",
+    "new charges",
+    "promo purchase",
+    "fees charged",
+    "interest charged",
 }
 
 # Section header keywords that are structural
@@ -159,6 +166,12 @@ class DataClassifier:
 
         # Second pass: detect address blocks (multi-line name+street+city)
         self._classify_address_blocks(template)
+
+        # 2b: detect mailing address at bottom of page 0
+        self._classify_bottom_address_block(template)
+
+        # 2c: detect repeated cardholder name across pages
+        self._classify_cardholder_names(template)
 
         # Third pass: detect transaction table rows and classify descriptions
         self._classify_transaction_rows(template)
@@ -304,13 +317,117 @@ class DataClassifier:
                             te.element_type = ElementCategory.DATA_PLACEHOLDER
                             te.data_type = DataType.NAME
 
+    def _classify_bottom_address_block(self, template: PDFTemplate) -> None:
+        """Detect mailing address at the bottom of page 0 (payment coupon area).
+
+        Credit card statements often have the cardholder's name and address
+        at the bottom-left of page 0 in the payment remittance section.
+        The bank's return address (right side) is structural and kept as-is.
+        """
+        page0_texts = [
+            te for te in template.text_elements
+            if te.page == 0 and te.element_type == ElementCategory.STRUCTURAL
+        ]
+        if not page0_texts:
+            return
+
+        max_y = max(te.y for te in page0_texts)
+        page_width = 612.0  # standard letter width
+        if template.page_dimensions:
+            page_width = template.page_dimensions[0].width
+        mid_x = page_width / 2
+
+        # Look in the bottom 15%, LEFT side only (user's address, not bank's)
+        bottom_texts = sorted(
+            [te for te in page0_texts if te.y > max_y * 0.85 and te.x < mid_x],
+            key=lambda t: (t.y, t.x),
+        )
+
+        # Group into lines
+        line_groups: list[list[TextElement]] = []
+        current_line: list[TextElement] = []
+        current_y: float | None = None
+
+        for te in bottom_texts:
+            if current_y is None or abs(te.y - current_y) > 3:
+                if current_line:
+                    line_groups.append(current_line)
+                current_line = [te]
+                current_y = te.y
+            else:
+                current_line.append(te)
+        if current_line:
+            line_groups.append(current_line)
+
+        # Look for city/state/zip line
+        for i, line in enumerate(line_groups):
+            line_text = " ".join(te.text for te in line)
+            if _CITY_STATE_ZIP_RE.match(line_text.strip()):
+                for te in line:
+                    te.element_type = ElementCategory.DATA_PLACEHOLDER
+                    te.data_type = DataType.ADDRESS
+                # Lines above: street then name
+                for j in range(max(0, i - 3), i):
+                    prev_text = " ".join(te.text for te in line_groups[j])
+                    prev_stripped = prev_text.strip()
+                    if _STREET_RE.match(prev_stripped) or _PO_BOX_RE.match(prev_stripped):
+                        for te in line_groups[j]:
+                            te.element_type = ElementCategory.DATA_PLACEHOLDER
+                            te.data_type = DataType.ADDRESS
+                    elif _is_likely_person_name(prev_stripped):
+                        for te in line_groups[j]:
+                            te.element_type = ElementCategory.DATA_PLACEHOLDER
+                            te.data_type = DataType.NAME
+
+    def _classify_cardholder_names(self, template: PDFTemplate) -> None:
+        """Detect repeated cardholder names across pages.
+
+        If the same ALL CAPS name appears on 2+ pages in header positions,
+        it's almost certainly the cardholder name (PII).
+        """
+        # Find candidate name elements: ALL CAPS, 2-3 words, each 2+ chars
+        from collections import Counter
+        name_counter: Counter[str] = Counter()
+        name_elements: dict[str, list[TextElement]] = {}
+
+        for te in template.text_elements:
+            if te.element_type != ElementCategory.STRUCTURAL:
+                continue
+            text = te.text.strip()
+            if not _is_likely_person_name(text):
+                continue
+            # Must be in header area (top 10% of page)
+            if te.y > 100:  # rough header threshold
+                continue
+            name_counter[text] += 1
+            name_elements.setdefault(text, []).append(te)
+
+        # Names appearing on 2+ pages are cardholder names
+        for name, count in name_counter.items():
+            if count >= 2:
+                pages = set(te.page for te in name_elements[name])
+                if len(pages) >= 2:
+                    logger.info("Detected cardholder name: %s (appears on %d pages)", name, len(pages))
+                    # Classify ALL occurrences (not just header ones)
+                    for te in template.text_elements:
+                        if te.text.strip() == name and te.element_type == ElementCategory.STRUCTURAL:
+                            te.element_type = ElementCategory.DATA_PLACEHOLDER
+                            te.data_type = DataType.NAME
+
     def _classify_transaction_rows(self, template: PDFTemplate) -> None:
         """Detect transaction table rows and classify description elements.
 
         Finds the transaction table by looking for a cluster of rows
         with date + amount patterns, then classifies non-date/non-amount
         elements in those rows as descriptions.
+
+        Row indices are globally unique across pages to avoid collisions.
         """
+        global_row_idx = 0  # Running counter across all pages
+        first_tx_page: int | None = None
+        first_tx_y: float | None = None
+        all_gaps: list[float] = []
+
         for page_idx in range(template.page_count):
             page_texts = [te for te in template.text_elements if te.page == page_idx]
             if not page_texts:
@@ -330,32 +447,49 @@ class DataClassifier:
             if not transaction_rows:
                 continue
 
-            # Assign row indices and classify remaining structural elements
-            # in transaction rows as descriptions
-            for row_idx, (y_pos, elements) in enumerate(transaction_rows):
+            # Record first page with transactions
+            if first_tx_page is None:
+                first_tx_page = page_idx
+                first_tx_y = transaction_rows[0][0]
+
+            # Determine the right-edge of the transaction table: the max x1 of
+            # amount elements.  Anything further right is a separate column
+            # (e.g. rewards summary) and should NOT be pulled into the row.
+            amount_max_x = 0.0
+            for _y, elems in transaction_rows:
+                for te in elems:
+                    if te.data_type == DataType.AMOUNT and te.width:
+                        amount_max_x = max(amount_max_x, te.x + te.width)
+            # Add a small margin (20pt) beyond the amount column
+            tx_right_boundary = amount_max_x + 20 if amount_max_x > 0 else 9999
+
+            # Assign globally unique row indices
+            for _local_idx, (y_pos, elements) in enumerate(transaction_rows):
                 for te in elements:
+                    # Skip elements beyond the transaction table boundary
+                    if te.x > tx_right_boundary:
+                        continue
                     if te.element_type == ElementCategory.DATA_PLACEHOLDER:
-                        te.row_index = row_idx
+                        te.row_index = global_row_idx
                     elif te.element_type == ElementCategory.STRUCTURAL:
-                        # Text that's not a date/amount in a transaction row
-                        # is likely a description
                         text = te.text.strip()
                         if len(text) > 2 and text.lower() not in _STRUCTURAL_LABELS:
                             te.element_type = ElementCategory.DATA_PLACEHOLDER
                             te.data_type = DataType.DESCRIPTION
-                            te.row_index = row_idx
+                            te.row_index = global_row_idx
+                global_row_idx += 1
 
-            # Record transaction area metadata
-            if transaction_rows and page_idx == 0:
-                template.transaction_area_page = page_idx
-                template.transaction_area_start_y = transaction_rows[0][0]
+            # Compute row height from consecutive rows on this page
+            if len(transaction_rows) >= 2:
+                for i in range(len(transaction_rows) - 1):
+                    all_gaps.append(transaction_rows[i + 1][0] - transaction_rows[i][0])
 
-                # Compute row height from consecutive rows
-                if len(transaction_rows) >= 2:
-                    gaps = [
-                        transaction_rows[i + 1][0] - transaction_rows[i][0] for i in range(len(transaction_rows) - 1)
-                    ]
-                    template.transaction_row_height = round(sum(gaps) / len(gaps), 2)
+        # Record transaction area metadata
+        if first_tx_page is not None and first_tx_y is not None:
+            template.transaction_area_page = first_tx_page
+            template.transaction_area_start_y = first_tx_y
+            if all_gaps:
+                template.transaction_row_height = round(sum(all_gaps) / len(all_gaps), 2)
 
     def _group_into_rows(
         self, elements: list[TextElement], tolerance: float = 3.0
@@ -420,3 +554,22 @@ def _is_likely_date(text: str) -> bool:
     """Check if text matches a known date pattern."""
     stripped = text.strip()
     return any(p.match(stripped) for p in _DATE_PATTERNS)
+
+
+def _is_likely_person_name(text: str) -> bool:
+    """Check if text looks like a person's name (ALL CAPS, 2-3 words)."""
+    words = text.split()
+    if len(words) < 2 or len(words) > 4:
+        return False
+    # Each word must be 2+ alphabetic chars, all caps
+    for w in words:
+        if len(w) < 2 or not w.isalpha() or not w.isupper():
+            return False
+    # Must not be a known structural label
+    if text.lower() in _STRUCTURAL_LABELS:
+        return False
+    # Must not contain section keywords
+    text_lower = text.lower()
+    if any(kw in text_lower for kw in _SECTION_KEYWORDS):
+        return False
+    return True

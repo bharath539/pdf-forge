@@ -131,7 +131,7 @@ class TemplateRenderer:
         target_tx_count = self._target_transaction_count(params)
 
         # Build modified text elements with fake data injected
-        rendered_texts = self._inject_fake_data(template, fake_data, target_tx_count)
+        rendered_texts = self._inject_fake_data(template, fake_data, target_tx_count, params)
 
         for page_idx in range(template.page_count):
             if page_idx > 0:
@@ -265,6 +265,7 @@ class TemplateRenderer:
         template: PDFTemplate,
         fake_data: dict[str, Any],
         target_tx_count: int,
+        params: GenerationParams,
     ) -> list[TextElement]:
         """Create a copy of text elements with placeholders filled."""
         transactions: list[Transaction] = fake_data["transactions"]
@@ -275,7 +276,13 @@ class TemplateRenderer:
         address_count = 0
         acct_count = 0
         ref_count = 0
-        # For non-row amounts (summary amounts)
+        # For non-row amounts (summary amounts).
+        # Build a list from all summary values so every non-row amount
+        # gets a distinct, meaningful value instead of falling back to
+        # closing_balance repeatedly.
+        import random as _rand
+
+        _rng = _rand.Random(params.seed if hasattr(params, "seed") else 42)
         summary_amount_idx = 0
         summary_amounts = [
             _format_amount(summary["opening_balance"]),
@@ -323,7 +330,10 @@ class TemplateRenderer:
                         new_te.text = summary_amounts[summary_amount_idx]
                         summary_amount_idx += 1
                     else:
-                        new_te.text = _format_amount(summary["closing_balance"])
+                        # Generate a plausible random amount instead of
+                        # repeating closing_balance for every overflow slot.
+                        rand_amt = Decimal(str(round(_rng.uniform(50, 5000), 2)))
+                        new_te.text = _format_amount(rand_amt)
                 elif te.data_type == DataType.DATE:
                     # Non-row date — use statement period dates
                     if transactions:
@@ -399,12 +409,13 @@ class TemplateRenderer:
 
                 result.append(new_te)
 
-        # Shift elements below the transaction area
+        # Shift elements below the transaction area — only on the same page
+        tx_page = template.transaction_area_page or 0
         if target_count != original_row_count and original_row_count > 0:
             y_shift = (target_count - original_row_count) * row_height
             last_original_y = base_y + original_row_count * row_height
             for te in result:
-                if te.row_index is None and te.y > last_original_y:
+                if te.row_index is None and te.page == tx_page and te.y > last_original_y:
                     te.y = round(te.y + y_shift, 2)
 
         return result
@@ -460,17 +471,40 @@ class TemplateRenderer:
         )
 
     def _draw_image_placeholder(self, c: Canvas, img: ImageElement, page_height: float) -> None:
-        """Draw an image placeholder (gray box with 'LOGO' text)."""
-        rl_y = page_height - img.y1
+        """Draw an image placeholder.
+
+        Large images in the header area get a gray "LOGO" box.
+        Small or non-header images are skipped to avoid visual noise.
+        """
+        if not img.placeholder:
+            return
+
         width = img.x1 - img.x0
         height = img.y1 - img.y0
 
-        c.setFillColor(HexColor("#CCCCCC"))
-        c.rect(img.x0, rl_y, width, height, stroke=1, fill=1)
-        c.setFillColor(HexColor("#666666"))
-        c.setFont("Helvetica", min(10, height * 0.4))
-        c.drawCentredString(
-            img.x0 + width / 2,
-            rl_y + height / 2 - 4,
-            "LOGO",
-        )
+        # Skip tiny decorative images (icons, bullets, separators)
+        if width < 20 or height < 15:
+            return
+
+        rl_y = page_height - img.y1
+
+        # Only label logo-shaped header images as "LOGO"
+        # Very wide images (>60% page width) are background bars, not logos
+        is_header = img.y0 < page_height * 0.15 and img.page == 0
+        is_large = width > 50 and height > 20
+        is_background_bar = width > page_height * 0.6  # wider than 60% of page
+
+        if is_header and is_large and not is_background_bar:
+            c.setFillColor(HexColor("#CCCCCC"))
+            c.rect(img.x0, rl_y, width, height, stroke=0, fill=1)
+            c.setFillColor(HexColor("#666666"))
+            c.setFont("Helvetica", min(10, height * 0.4))
+            c.drawCentredString(
+                img.x0 + width / 2,
+                rl_y + height / 2 - 4,
+                "LOGO",
+            )
+        else:
+            # Non-logo images: draw a subtle placeholder box without text
+            c.setFillColor(HexColor("#E8E8E8"))
+            c.rect(img.x0, rl_y, width, height, stroke=0, fill=1)
