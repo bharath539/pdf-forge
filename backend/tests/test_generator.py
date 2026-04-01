@@ -9,24 +9,14 @@ import zipfile
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
 from app.models.generation import GenerationParams, Scenario, TransactionRange
 from app.models.schema import (
     AccountType,
-    DescriptionPattern,
-    FontRole,
-    FontSpec,
     FormatSchema,
     Margins,
-    PageBreakRules,
     PageLayout,
-    Section,
-    SectionType,
-    TableColumn,
 )
-from app.services.synthetic_generator import SyntheticGenerator, format_date, format_amount
-
+from app.services.synthetic_generator import SyntheticGenerator, format_amount, format_date
 
 # ---------------------------------------------------------------------------
 # Helpers

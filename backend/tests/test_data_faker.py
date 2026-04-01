@@ -8,12 +8,9 @@ import calendar
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
-from app.models.generation import GenerationParams, Scenario, TransactionRange, TypeDistribution
+from app.models.generation import GenerationParams, Scenario, TransactionRange
 from app.models.schema import DescriptionPattern
-from app.services.data_faker import TransactionFaker, Transaction
-
+from app.services.data_faker import TransactionFaker
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -4,7 +4,6 @@ Verifies that PII is correctly redacted while safe patterns (format strings,
 hex colors, font names, placeholders) survive sanitization.
 """
 
-import copy
 
 import pytest
 

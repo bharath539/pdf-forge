@@ -5,6 +5,7 @@ from app.main import app
 from app.models.schema import (
     AccountType,
     DescriptionPattern,
+    ElementType,
     FontRole,
     FontSpec,
     FormatSchema,
@@ -16,7 +17,6 @@ from app.models.schema import (
     SectionType,
     SummaryField,
     TableColumn,
-    ElementType,
 )
 
 
@@ -79,7 +79,10 @@ def minimal_schema() -> FormatSchema:
                 header_underline=True,
                 columns=[
                     TableColumn(header="Date", x_start=54, x_end=124, format="date", alignment="left"),
-                    TableColumn(header="Description", x_start=134, x_end=394, format="text", alignment="left", max_chars=50),
+                    TableColumn(
+                        header="Description", x_start=134, x_end=394,
+                        format="text", alignment="left", max_chars=50,
+                    ),
                     TableColumn(header="Amount", x_start=404, x_end=484, format="amount", alignment="right"),
                     TableColumn(header="Balance", x_start=494, x_end=558, format="amount", alignment="right"),
                 ],
