@@ -12,10 +12,10 @@ import logging
 import zipfile
 from datetime import date
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 from faker import Faker
-from reportlab.lib.colors import HexColor, Color
+from reportlab.lib.colors import Color, HexColor
 from reportlab.pdfgen.canvas import Canvas
 
 from app.models.generation import GenerationParams, Scenario
@@ -24,12 +24,12 @@ from app.models.template import (
     ElementCategory,
     ImageElement,
     LineElement,
-    PDFTemplate,
     PageDimensions,
+    PDFTemplate,
     RectElement,
     TextElement,
 )
-from app.services.data_faker import TransactionFaker, Transaction
+from app.services.data_faker import Transaction, TransactionFaker
 
 logger = logging.getLogger(__name__)
 
@@ -127,13 +127,9 @@ class TemplateRenderer:
 
         # Determine which pages to render and handle transaction expansion
         target_tx_count = self._target_transaction_count(params)
-        original_tx_count = template.data_field_summary.transaction_rows
 
         # Build modified text elements with fake data injected
         rendered_texts = self._inject_fake_data(template, fake_data, target_tx_count)
-
-        # Group all elements by page
-        max_page = template.page_count - 1
 
         for page_idx in range(template.page_count):
             if page_idx > 0:
@@ -277,10 +273,6 @@ class TemplateRenderer:
         summary = fake_data["summary"]
 
         # Counters for sequential injection
-        tx_idx = 0  # which transaction we're on
-        date_in_row: dict[int, int] = {}  # row_index -> how many dates used
-        amount_in_row: dict[int, int] = {}
-        desc_in_row: dict[int, int] = {}
         name_count = 0
         address_count = 0
         acct_count = 0

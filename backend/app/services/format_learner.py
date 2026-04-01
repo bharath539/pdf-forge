@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from io import BytesIO
 from typing import Any
 
@@ -800,7 +800,10 @@ class FormatLearner:
             try:
                 if largest_ft.cells:
                     # Extract unique x-boundaries from cells
-                    all_x = sorted(set(cell[0] for cell in largest_ft.cells) | set(cell[2] for cell in largest_ft.cells))
+                    all_x = sorted(
+                        set(cell[0] for cell in largest_ft.cells)
+                        | set(cell[2] for cell in largest_ft.cells)
+                    )
                     if len(all_x) >= n_valid + 1:
                         for idx in range(min(n_valid, len(all_x) - 1)):
                             col_boundaries.append((round(all_x[idx], 1), round(all_x[idx + 1], 1)))
@@ -852,7 +855,8 @@ class FormatLearner:
                 if non_empty / len(vals) >= 0.2:
                     validated_columns.append(col)
                 else:
-                    logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, (1 - non_empty / len(vals)) * 100)
+                    pct = (1 - non_empty / len(vals)) * 100
+                    logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, pct)
                     table_values.pop(col.header, None)
             columns = validated_columns
 
@@ -862,7 +866,6 @@ class FormatLearner:
                 columns = columns[:8]
 
             # Estimate row height
-            data_rows = table[1:]
             row_height = round((bbox[3] - bbox[1]) / max(len(table), 1), 1)
 
             # Detect alternate row fill from rectangles
@@ -1022,7 +1025,8 @@ class FormatLearner:
             if non_empty / max(len(vals), 1) >= 0.2:
                 validated_columns.append(col)
             else:
-                logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, (1 - non_empty / max(len(vals), 1)) * 100)
+                pct = (1 - non_empty / max(len(vals), 1)) * 100
+                logger.info("Dropping phantom column '%s' (%.0f%% empty)", col.header, pct)
                 table_values.pop(col.header, None)
         columns = validated_columns if validated_columns else columns
 

@@ -6,13 +6,12 @@ import calendar
 import random
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from faker import Faker
 
 from app.models.generation import GenerationParams, Scenario
 from app.models.schema import DescriptionPattern
-
 
 # ---------------------------------------------------------------------------
 # Transaction dataclass
@@ -351,7 +350,7 @@ class TransactionFaker:
         if tx_type == "atm":
             action = "DEPOSIT" if is_credit else "WITHDRAWAL"
             return f"ATM {action} - {placeholders['location']}"
-        return f"MISC TRANSACTION"
+        return "MISC TRANSACTION"
 
     def _build_placeholders(self, tx_type: str, is_credit: bool) -> dict[str, str]:
         """Return a dict of placeholder values usable for format-string substitution."""

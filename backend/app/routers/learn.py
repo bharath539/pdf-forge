@@ -11,14 +11,13 @@ import json
 import logging
 from datetime import datetime, timezone
 from io import BytesIO
-from uuid import UUID
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from app.db.connection import get_pool
 from app.models.template import AccountType, PDFTemplate, PDFTemplateRecord
-from app.services.template_extractor import TemplateExtractor
 from app.services.data_classifier import DataClassifier
+from app.services.template_extractor import TemplateExtractor
 from app.services.template_sanitizer import TemplateSanitizer
 
 logger = logging.getLogger(__name__)
@@ -117,9 +116,13 @@ async def learn_format(
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO pdf_templates (bank_name, account_type, display_name, template_json, page_count, data_field_count)
+            INSERT INTO pdf_templates
+                (bank_name, account_type, display_name,
+                 template_json, page_count, data_field_count)
             VALUES ($1, $2, $3, $4::jsonb, $5, $6)
-            RETURNING id, bank_name, account_type, display_name, template_json, page_count, data_field_count, created_at, updated_at
+            RETURNING id, bank_name, account_type, display_name,
+                      template_json, page_count, data_field_count,
+                      created_at, updated_at
             """,
             template.bank_name,
             template.account_type.value,

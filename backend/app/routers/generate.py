@@ -17,7 +17,6 @@ from app.db.connection import get_pool
 from app.models.generation import (
     BatchGenerationRequest,
     GenerationParams,
-    Scenario,
 )
 from app.models.template import PDFTemplate
 from app.services.template_renderer import TemplateRenderer
@@ -61,7 +60,6 @@ async def _fetch_template(template_id: UUID) -> tuple[PDFTemplate, str, str]:
 
     # V1 schema — use the old generator
     from app.models.schema import FormatSchema
-    from app.services.synthetic_generator import SyntheticGenerator
 
     schema = FormatSchema.model_validate(json.loads(row["schema_json"]))
     # Return None to signal V1 mode

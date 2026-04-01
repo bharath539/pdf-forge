@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.connection import close_pool, run_migrations
-from app.routers import health, learn, formats, generate
+from app.routers import formats, generate, health, learn
 
 
 @asynccontextmanager

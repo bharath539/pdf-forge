@@ -1,5 +1,12 @@
 """PDF Forge data models."""
 
+from app.models.generation import (
+    BatchGenerationRequest,
+    GenerationParams,
+    GenerationRequest,
+    PreviewRequest,
+    Scenario,
+)
 from app.models.schema import (
     AccountType,
     FormatSchema,
@@ -7,13 +14,6 @@ from app.models.schema import (
     FormatSchemaListItem,
     FormatSchemaRecord,
     FormatSchemaUpdate,
-)
-from app.models.generation import (
-    BatchGenerationRequest,
-    GenerationParams,
-    GenerationRequest,
-    PreviewRequest,
-    Scenario,
 )
 
 __all__ = [

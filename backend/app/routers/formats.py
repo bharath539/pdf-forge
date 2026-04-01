@@ -5,7 +5,6 @@ Lists both V1 format_schemas and V2 pdf_templates in a unified view.
 
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Response
@@ -13,9 +12,6 @@ from pydantic import BaseModel
 
 from app.db.connection import get_pool
 from app.models.schema import (
-    AccountType,
-    FormatSchema,
-    FormatSchemaRecord,
     FormatSchemaUpdate,
 )
 
@@ -92,7 +88,9 @@ async def get_format(format_id: UUID):
         # Try V2
         row = await conn.fetchrow(
             """
-            SELECT id, bank_name, account_type, display_name, template_json, page_count, data_field_count, created_at, updated_at
+            SELECT id, bank_name, account_type, display_name,
+                   template_json, page_count, data_field_count,
+                   created_at, updated_at
             FROM pdf_templates WHERE id = $1
             """,
             format_id,

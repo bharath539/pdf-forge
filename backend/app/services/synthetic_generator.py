@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from reportlab.lib.colors import HexColor, Color
-from reportlab.lib.units import inch
+from reportlab.lib.colors import Color, HexColor
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen.canvas import Canvas
 
@@ -28,8 +27,7 @@ from app.models.schema import (
     SectionType,
     TableColumn,
 )
-from app.services.data_faker import TransactionFaker, Transaction
-
+from app.services.data_faker import Transaction, TransactionFaker
 
 # ---------------------------------------------------------------------------
 # Font mapping: schema family names -> reportlab built-in font names
@@ -301,7 +299,7 @@ class SyntheticGenerator:
             for i, scenario in enumerate(scenarios):
                 scenario_seed = (seed + i) if seed is not None else None
                 params = GenerationParams(
-                    schema_id=schema.schema_version,  # placeholder; caller sets real ID
+                    schema_id="00000000-0000-0000-0000-000000000000",  # placeholder; caller sets real ID
                     scenario=scenario,
                     start_date=start_date,
                     seed=scenario_seed,
@@ -408,7 +406,6 @@ class SyntheticGenerator:
 
         # --- Beginning Balance row ---
         columns = self._get_columns(table_sec, margins)
-        tb_font = self._font_cache.get(FontRole.TABLE_BODY)
         if columns and len(columns) >= 2:
             # Description column (second column usually)
             desc_col = columns[1] if len(columns) > 1 else columns[0]

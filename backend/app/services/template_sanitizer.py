@@ -13,7 +13,6 @@ from app.models.template import (
     DataType,
     ElementCategory,
     PDFTemplate,
-    TextElement,
 )
 
 logger = logging.getLogger(__name__)
