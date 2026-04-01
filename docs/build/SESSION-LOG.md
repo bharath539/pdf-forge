@@ -91,3 +91,66 @@ docker-compose.yml, CLAUDE.md, .github/workflows/ci.yml
 
 ### All tasks complete
 21/21 tasks done. Full V1 built and deployed in a single session.
+
+---
+
+## Session 2 — 2026-03-31
+
+### What happened
+- Tested PDF Forge against 10 real bank statement PDFs (mostly Chase, some Citi, Wells Fargo)
+- Found and fixed 6 bugs in the format learner + 4 issues in the generator
+- Fixed Railway deployment (Nixpacks pip issue, postgres:// URL scheme, CORS origins)
+- Identified fundamental architecture problem: V1 abstracts and reconstructs, losing layout fidelity
+- Created V2 rewrite plan for template-based approach
+
+### Learner bugs fixed (format_learner.py)
+1. **Bank name detection** — was concatenating chars without spacing, picking date ranges as bank names. Fixed: use `_chars_to_words()`, skip date/address lines, iterate by font size
+2. **Phantom table columns** — pdfplumber and manual path creating extra empty columns. Fixed: filter None headers, use actual cell boundaries, post-validate, refine manual path with data-only x-positions
+3. **Amount format detection** — trusting header names without verifying values. Fixed: verify 30% of samples match, expanded `_AMOUNT_RE` regex
+4. **Description patterns** — case-sensitive regexes, narrow header matching, missing US patterns. Fixed: `re.IGNORECASE`, substring matching, 5 new patterns (Zelle, PPD, payroll, autopay, Web ID)
+5. **Summary field extraction** — capturing customer service info instead of financial fields, form markers leaking. Fixed: use `_chars_to_words()`, x-gap detection, filter to known financial roles only
+6. **Account summary scanning** — too narrow y-range, missing gap-separated fields. Fixed: expanded to 25%, added x-gap >50pt detection
+
+### Generator improvements (synthetic_generator.py)
+1. **Section header bars** — Added `_render_section_label()` method with dark background + white text
+2. **Beginning/Ending Balance rows** — Added bold balance rows before first and after last transaction
+3. **Summary rendering fallback** — Falls back to default financial fields when schema fields don't match
+4. **Text overflow clipping** — Added `stringWidth()` measurement + proportional truncation
+
+### Deployment fixes
+- Fixed Railway Nixpacks build: `pip` not on PATH → use `python3.11 -m ensurepip`
+- Fixed Dockerfile COPY paths for backend/ root directory context
+- Fixed asyncpg URL: Railway's `postgres://` → `postgresql://` auto-conversion
+- Added Vercel frontend URLs to CORS allowed origins
+- Improved startup migration logging
+
+### Architecture decision: V2 template-based rewrite
+- **Problem identified**: V1 extracts abstract schemas and rebuilds from scratch → synthetic PDFs look nothing like originals (only transaction table reproduced, all formatting/layout lost)
+- **Solution**: Template-based approach — extract ALL elements (text, lines, rects) with positions, classify as structural vs data, store template with typed placeholders, replay with fake data
+- **Plan created**: `docs/build/V2-TEMPLATE-REWRITE-PLAN.md` — 15 tasks across 4 phases
+- V1 code kept for backward compatibility, V2 builds alongside
+
+### Files changed
+```
+MODIFIED:
+  backend/app/services/format_learner.py (+295 -49 lines)
+  backend/app/services/synthetic_generator.py (+138 -25 lines)
+  backend/app/config.py (CORS origins, database_url_async property)
+  backend/app/db/connection.py (use database_url_async)
+  backend/app/main.py (improved migration logging)
+  backend/Dockerfile (fixed COPY paths)
+  backend/nixpacks.toml (fixed pip install)
+  railway.json (updated dockerfilePath)
+
+CREATED:
+  test_real_pdfs.py (end-to-end test script)
+  test-output/ (generated schemas and PDFs)
+  docs/build/V2-TEMPLATE-REWRITE-PLAN.md (V2 rewrite plan)
+```
+
+### Key decisions
+- V2 template approach is fundamentally better than V1 schema approach
+- Keep V1 code intact for backward compatibility during transition
+- data_faker.py reusable as-is in V2
+- Template will be larger (50-200KB JSONB vs 5-10KB) — acceptable
+- Transaction count variation (expanding/contracting rows) is the hardest V2 task
