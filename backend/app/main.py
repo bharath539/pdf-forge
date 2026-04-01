@@ -13,6 +13,7 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle handler."""
     # Startup: initialize DB connection pool and run migrations
     import logging
+
     logger = logging.getLogger(__name__)
     try:
         await run_migrations()

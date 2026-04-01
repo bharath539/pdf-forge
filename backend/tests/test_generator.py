@@ -22,6 +22,7 @@ from app.services.synthetic_generator import SyntheticGenerator, format_amount, 
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _gen_params(**overrides) -> GenerationParams:
     defaults = dict(
         schema_id="00000000-0000-0000-0000-000000000000",
@@ -151,7 +152,8 @@ class TestMinimalSchema:
             account_type=AccountType.CHECKING,
             display_name="Bare Bones Checking",
             page=PageLayout(
-                width=612.0, height=792.0,
+                width=612.0,
+                height=792.0,
                 margins=Margins(top=72, right=54, bottom=72, left=54),
             ),
             fonts=[],
@@ -264,9 +266,7 @@ class TestGenerateBatch:
             for name in zf.namelist():
                 # Only alphanumeric, underscore, dash, and dot allowed
                 for ch in name:
-                    assert ch.isalnum() or ch in ("_", "-", "."), (
-                        f"Unsafe character '{ch}' in filename '{name}'"
-                    )
+                    assert ch.isalnum() or ch in ("_", "-", "."), f"Unsafe character '{ch}' in filename '{name}'"
 
 
 # ---------------------------------------------------------------------------

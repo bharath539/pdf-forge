@@ -20,6 +20,7 @@ router = APIRouter(tags=["formats"])
 
 class FormatListItem(BaseModel):
     """Unified list item for both V1 and V2 formats."""
+
     id: UUID
     bank_name: str
     account_type: str
@@ -45,15 +46,17 @@ async def list_formats() -> list[FormatListItem]:
             """
         )
         for row in v2_rows:
-            results.append(FormatListItem(
-                id=row["id"],
-                bank_name=row["bank_name"],
-                account_type=row["account_type"],
-                display_name=row["display_name"],
-                page_count=row["page_count"],
-                created_at=str(row["created_at"]),
-                version="v2",
-            ))
+            results.append(
+                FormatListItem(
+                    id=row["id"],
+                    bank_name=row["bank_name"],
+                    account_type=row["account_type"],
+                    display_name=row["display_name"],
+                    page_count=row["page_count"],
+                    created_at=str(row["created_at"]),
+                    version="v2",
+                )
+            )
 
         # V1 schemas
         v1_rows = await conn.fetch(
@@ -64,15 +67,17 @@ async def list_formats() -> list[FormatListItem]:
             """
         )
         for row in v1_rows:
-            results.append(FormatListItem(
-                id=row["id"],
-                bank_name=row["bank_name"],
-                account_type=row["account_type"],
-                display_name=row["display_name"],
-                page_count=row["page_count"],
-                created_at=str(row["created_at"]),
-                version="v1",
-            ))
+            results.append(
+                FormatListItem(
+                    id=row["id"],
+                    bank_name=row["bank_name"],
+                    account_type=row["account_type"],
+                    display_name=row["display_name"],
+                    page_count=row["page_count"],
+                    created_at=str(row["created_at"]),
+                    version="v1",
+                )
+            )
 
     # Sort by created_at desc
     results.sort(key=lambda x: x.created_at, reverse=True)
@@ -164,7 +169,8 @@ async def update_format(format_id: UUID, body: FormatSchemaUpdate):
         row = await conn.fetchrow(
             f"UPDATE pdf_templates SET {set_clause} WHERE id = $1 "
             f"RETURNING id, bank_name, account_type, display_name, page_count, created_at, updated_at",
-            format_id, *params,
+            format_id,
+            *params,
         )
         if row is not None:
             return {
@@ -182,7 +188,8 @@ async def update_format(format_id: UUID, body: FormatSchemaUpdate):
         row = await conn.fetchrow(
             f"UPDATE format_schemas SET {set_clause} WHERE id = $1 "
             f"RETURNING id, bank_name, account_type, display_name, page_count, created_at, updated_at",
-            format_id, *params,
+            format_id,
+            *params,
         )
 
     if row is None:
@@ -208,14 +215,16 @@ async def delete_format(format_id: UUID) -> Response:
     async with pool.acquire() as conn:
         # Try V2
         result = await conn.execute(
-            "DELETE FROM pdf_templates WHERE id = $1", format_id,
+            "DELETE FROM pdf_templates WHERE id = $1",
+            format_id,
         )
         if result != "DELETE 0":
             return Response(status_code=204)
 
         # Try V1
         result = await conn.execute(
-            "DELETE FROM format_schemas WHERE id = $1", format_id,
+            "DELETE FROM format_schemas WHERE id = $1",
+            format_id,
         )
 
     if result == "DELETE 0":

@@ -26,11 +26,14 @@ _PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("credit_card", re.compile(r"\b(?:\d{4}[\s\-]?){3}\d{4}\b")),
     ("email", re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b")),
     ("phone", re.compile(r"\b(?:\(\d{3}\)|\d{3})[\s\-\.]?\d{3}[\s\-\.]?\d{4}\b")),
-    ("street", re.compile(
-        r"\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+"
-        r"(?:St|Dr|Ave|Blvd|Ln|Rd|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter)\b",
-        re.IGNORECASE,
-    )),
+    (
+        "street",
+        re.compile(
+            r"\b\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+"
+            r"(?:St|Dr|Ave|Blvd|Ln|Rd|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter)\b",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 # Placeholder strings for each data type
@@ -75,7 +78,8 @@ class TemplateSanitizer:
 
         logger.info(
             "Sanitization complete: %d data→placeholders, %d structural→redacted",
-            data_replaced, structural_redacted,
+            data_replaced,
+            structural_redacted,
         )
         return template
 

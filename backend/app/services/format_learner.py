@@ -142,6 +142,7 @@ _DESC_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
 # Helper utilities
 # ---------------------------------------------------------------------------
 
+
 def _hex_color(color: Any) -> str:
     """Convert a pdfplumber color value to a hex string."""
     if color is None:
@@ -171,13 +172,40 @@ def _font_weight(fontname: str) -> str:
 
 
 _KNOWN_BANK_NAMES = {
-    "chase", "jpmorgan chase", "jp morgan", "bank of america",
-    "wells fargo", "citibank", "citi", "capital one", "us bank",
-    "u.s. bank", "pnc", "truist", "td bank", "ally", "discover",
-    "american express", "amex", "usaa", "navy federal",
-    "schwab", "charles schwab", "fidelity", "goldman sachs",
-    "marcus", "sofi", "chime", "huntington", "regions", "fifth third",
-    "citizens", "key bank", "m&t bank", "synchrony", "barclays",
+    "chase",
+    "jpmorgan chase",
+    "jp morgan",
+    "bank of america",
+    "wells fargo",
+    "citibank",
+    "citi",
+    "capital one",
+    "us bank",
+    "u.s. bank",
+    "pnc",
+    "truist",
+    "td bank",
+    "ally",
+    "discover",
+    "american express",
+    "amex",
+    "usaa",
+    "navy federal",
+    "schwab",
+    "charles schwab",
+    "fidelity",
+    "goldman sachs",
+    "marcus",
+    "sofi",
+    "chime",
+    "huntington",
+    "regions",
+    "fifth third",
+    "citizens",
+    "key bank",
+    "m&t bank",
+    "synchrony",
+    "barclays",
 }
 
 _DATE_LINE_RE = re.compile(
@@ -193,11 +221,31 @@ _ADDRESS_LINE_RE = re.compile(
 )
 
 _KNOWN_FONT_FAMILIES = {
-    "helvetica", "arial", "courier", "times", "times new roman",
-    "times-roman", "verdana", "georgia", "tahoma", "calibri",
-    "cambria", "garamond", "palatino", "century", "bookman",
-    "futura", "optima", "gill sans", "avenir", "roboto", "open sans",
-    "lato", "source sans", "noto sans", "inter",
+    "helvetica",
+    "arial",
+    "courier",
+    "times",
+    "times new roman",
+    "times-roman",
+    "verdana",
+    "georgia",
+    "tahoma",
+    "calibri",
+    "cambria",
+    "garamond",
+    "palatino",
+    "century",
+    "bookman",
+    "futura",
+    "optima",
+    "gill sans",
+    "avenir",
+    "roboto",
+    "open sans",
+    "lato",
+    "source sans",
+    "noto sans",
+    "inter",
 }
 
 
@@ -209,9 +257,16 @@ def _font_family(fontname: str) -> str:
     # Strip common suffixes added by PDF encoders
     name = fontname
     for suffix in [
-        "-Bold", "-Italic", "-BoldItalic", "-Light",
-        ",Bold", ",Italic", ",BoldItalic",
-        "-Regular", ",Regular", "-Roman",
+        "-Bold",
+        "-Italic",
+        "-BoldItalic",
+        "-Light",
+        ",Bold",
+        ",Italic",
+        ",BoldItalic",
+        "-Regular",
+        ",Regular",
+        "-Roman",
     ]:
         name = name.replace(suffix, "")
     # Strip subset prefix like ABCDEF+
@@ -333,14 +388,10 @@ class FormatLearner:
             logger.info("Detected %d sections", len(sections))
 
             # --- Step 4: Transaction Table Analysis ---
-            table_section, table_values = self._analyze_transaction_table(
-                pages, page_layout, fonts, sections
-            )
+            table_section, table_values = self._analyze_transaction_table(pages, page_layout, fonts, sections)
             if table_section:
                 # Replace or insert the transaction_table section
-                sections = [
-                    s for s in sections if s.type != SectionType.TRANSACTION_TABLE
-                ]
+                sections = [s for s in sections if s.type != SectionType.TRANSACTION_TABLE]
                 sections.append(table_section)
                 sections.sort(key=lambda s: abs(s.y_start))
             logger.info("Transaction table analysis complete")
@@ -423,9 +474,7 @@ class FormatLearner:
     # Step 2: Font Analysis
     # ------------------------------------------------------------------
 
-    def _extract_fonts(
-        self, pages: list[pdfplumber.page.Page], page_height: float
-    ) -> list[FontSpec]:
+    def _extract_fonts(self, pages: list[pdfplumber.page.Page], page_height: float) -> list[FontSpec]:
         """Collect unique font specs and classify them by role."""
         # font_key -> { family, size, weight, color, count, positions }
         font_map: dict[tuple[str, float, str], dict[str, Any]] = {}
@@ -452,9 +501,7 @@ class FormatLearner:
                 font_map[key]["y_positions"].append(float(char.get("top", 0)))
 
         # Filter out invisible/tiny fonts (e.g., form fields, hidden chars)
-        readable_font_map = {
-            k: v for k, v in font_map.items() if v["size"] >= _MIN_FONT_SIZE
-        }
+        readable_font_map = {k: v for k, v in font_map.items() if v["size"] >= _MIN_FONT_SIZE}
         if not readable_font_map:
             # Fall back to all fonts if filtering removed everything
             readable_font_map = font_map
@@ -488,8 +535,7 @@ class FormatLearner:
         # Footer = smallest font appearing in bottom 15% of page
         footer_threshold = page_height * 0.85
         footer_candidates = [
-            f for f in readable_font_map.values()
-            if any(y > footer_threshold for y in f["y_positions"])
+            f for f in readable_font_map.values() if any(y > footer_threshold for y in f["y_positions"])
         ]
         if footer_candidates:
             assigned_roles[FontRole.FOOTER] = min(footer_candidates, key=lambda f: f["size"])
@@ -500,9 +546,7 @@ class FormatLearner:
         assigned_roles.setdefault(FontRole.TABLE_BODY, most_common)
         # Table header is often bold version of body size or slightly larger
         bold_body_candidates = [
-            f for f in readable_font_map.values()
-            if f["weight"] == "bold"
-            and abs(f["size"] - most_common["size"]) <= 2
+            f for f in readable_font_map.values() if f["weight"] == "bold" and abs(f["size"] - most_common["size"]) <= 2
         ]
         if bold_body_candidates:
             assigned_roles[FontRole.TABLE_HEADER] = bold_body_candidates[0]
@@ -511,13 +555,15 @@ class FormatLearner:
 
         result: list[FontSpec] = []
         for role, fdata in assigned_roles.items():
-            result.append(FontSpec(
-                role=role,
-                family=fdata["family"],
-                size=fdata["size"],
-                weight=fdata["weight"],
-                color=fdata.get("color", "#000000"),
-            ))
+            result.append(
+                FontSpec(
+                    role=role,
+                    family=fdata["family"],
+                    size=fdata["size"],
+                    weight=fdata["weight"],
+                    color=fdata.get("color", "#000000"),
+                )
+            )
 
         return result
 
@@ -570,15 +616,17 @@ class FormatLearner:
             for img in images:
                 img_top = float(img.get("top", 0))
                 if img_top < header_y_end:
-                    header_elements.append(SectionElement(
-                        type=ElementType.LOGO_PLACEHOLDER,
-                        bbox=BoundingBox(
-                            x0=float(img["x0"]),
-                            y0=float(img["top"]),
-                            x1=float(img["x1"]),
-                            y1=float(img["bottom"]),
-                        ),
-                    ))
+                    header_elements.append(
+                        SectionElement(
+                            type=ElementType.LOGO_PLACEHOLDER,
+                            bbox=BoundingBox(
+                                x0=float(img["x0"]),
+                                y0=float(img["top"]),
+                                x1=float(img["x1"]),
+                                y1=float(img["bottom"]),
+                            ),
+                        )
+                    )
 
             # Text fields in header
             for y_pos, line_chars in sorted(line_groups.items()):
@@ -587,22 +635,28 @@ class FormatLearner:
                     header_font = self._font_role_for_size(fonts, avg_size)
                     xs = [float(c["x0"]) for c in line_chars]
                     xe = [float(c["x1"]) for c in line_chars]
-                    header_elements.append(SectionElement(
-                        type=ElementType.TEXT_FIELD,
-                        role="bank_name" if avg_size >= self._header_font_size(fonts) else "statement_info",
-                        bbox=BoundingBox(
-                            x0=min(xs), y0=y_pos,
-                            x1=max(xe), y1=y_pos + avg_size,
-                        ),
-                        font_ref=header_font,
-                    ))
+                    header_elements.append(
+                        SectionElement(
+                            type=ElementType.TEXT_FIELD,
+                            role="bank_name" if avg_size >= self._header_font_size(fonts) else "statement_info",
+                            bbox=BoundingBox(
+                                x0=min(xs),
+                                y0=y_pos,
+                                x1=max(xe),
+                                y1=y_pos + avg_size,
+                            ),
+                            font_ref=header_font,
+                        )
+                    )
 
-            sections.append(Section(
-                type=SectionType.HEADER,
-                y_start=round(layout.margins.top, 1),
-                y_end=round(header_y_end, 1),
-                elements=header_elements if header_elements else None,
-            ))
+            sections.append(
+                Section(
+                    type=SectionType.HEADER,
+                    y_start=round(layout.margins.top, 1),
+                    y_end=round(header_y_end, 1),
+                    elements=header_elements if header_elements else None,
+                )
+            )
         except Exception:
             logger.exception("Error detecting header section")
 
@@ -621,17 +675,21 @@ class FormatLearner:
                             fmt = "Page {n} of {total}"
                         else:
                             fmt = "Page {n}"
-                    footer_elements.append(SectionElement(
-                        type=ElementType.TEXT_FIELD,
-                        role=role,
-                        format=fmt,
-                    ))
+                    footer_elements.append(
+                        SectionElement(
+                            type=ElementType.TEXT_FIELD,
+                            role=role,
+                            format=fmt,
+                        )
+                    )
 
-            sections.append(Section(
-                type=SectionType.FOOTER,
-                y_start=round(-(page_h - footer_y_start), 1),
-                elements=footer_elements if footer_elements else None,
-            ))
+            sections.append(
+                Section(
+                    type=SectionType.FOOTER,
+                    y_start=round(-(page_h - footer_y_start), 1),
+                    elements=footer_elements if footer_elements else None,
+                )
+            )
         except Exception:
             logger.exception("Error detecting footer section")
 
@@ -643,11 +701,22 @@ class FormatLearner:
 
             # Known financial summary roles — only keep fields matching these
             _KNOWN_SUMMARY_ROLES = {
-                "opening_balance", "closing_balance", "account_number_masked",
-                "statement_period", "payment_due_date", "minimum_payment",
-                "credit_limit", "total_deposits", "total_withdrawals",
-                "new_balance", "previous_balance", "available_credit",
-                "purchases", "cash_advances", "fees", "interest_charged",
+                "opening_balance",
+                "closing_balance",
+                "account_number_masked",
+                "statement_period",
+                "payment_due_date",
+                "minimum_payment",
+                "credit_limit",
+                "total_deposits",
+                "total_withdrawals",
+                "new_balance",
+                "previous_balance",
+                "available_credit",
+                "purchases",
+                "cash_advances",
+                "fees",
+                "interest_charged",
             }
 
             # Look for label-value pairs (two text clusters on the same line)
@@ -669,9 +738,7 @@ class FormatLearner:
                         role = self._classify_summary_role(label)
                         fmt = self._infer_summary_format(role)
                         if role and label:
-                            summary_fields.append(SummaryField(
-                                role=role, label=label, format=fmt
-                            ))
+                            summary_fields.append(SummaryField(role=role, label=label, format=fmt))
                         continue
 
                     # Method 2: Large x-gap between word groups (>50pt)
@@ -684,35 +751,34 @@ class FormatLearner:
                                 max_gap = gap
                                 split_idx = wi
                         if max_gap > 50 and split_idx >= 0:
-                            label = " ".join(w["text"] for w in words[:split_idx + 1]).strip()
+                            label = " ".join(w["text"] for w in words[: split_idx + 1]).strip()
                             role = self._classify_summary_role(label)
                             fmt = self._infer_summary_format(role)
                             if role and label and len(label) > 2:
-                                summary_fields.append(SummaryField(
-                                    role=role, label=label, format=fmt
-                                ))
+                                summary_fields.append(SummaryField(role=role, label=label, format=fmt))
 
             # Filter: only keep fields with recognized financial roles
-            summary_fields = [
-                f for f in summary_fields
-                if f.role in _KNOWN_SUMMARY_ROLES
-            ]
+            summary_fields = [f for f in summary_fields if f.role in _KNOWN_SUMMARY_ROLES]
 
             if summary_fields:
-                sections.append(Section(
-                    type=SectionType.ACCOUNT_SUMMARY,
-                    y_start=round(summary_y_start, 1),
-                    y_end=round(summary_y_end, 1),
-                    fields=summary_fields,
-                ))
+                sections.append(
+                    Section(
+                        type=SectionType.ACCOUNT_SUMMARY,
+                        y_start=round(summary_y_start, 1),
+                        y_end=round(summary_y_end, 1),
+                        fields=summary_fields,
+                    )
+                )
         except Exception:
             logger.exception("Error detecting account summary section")
 
         # Placeholder for transaction_table -- filled in step 4
-        sections.append(Section(
-            type=SectionType.TRANSACTION_TABLE,
-            y_start=round(layout.height * 0.3, 1),
-        ))
+        sections.append(
+            Section(
+                type=SectionType.TRANSACTION_TABLE,
+                y_start=round(layout.height * 0.3, 1),
+            )
+        )
 
         sections.sort(key=lambda s: abs(s.y_start))
         return sections
@@ -801,8 +867,7 @@ class FormatLearner:
                 if largest_ft.cells:
                     # Extract unique x-boundaries from cells
                     all_x = sorted(
-                        set(cell[0] for cell in largest_ft.cells)
-                        | set(cell[2] for cell in largest_ft.cells)
+                        set(cell[0] for cell in largest_ft.cells) | set(cell[2] for cell in largest_ft.cells)
                     )
                     if len(all_x) >= n_valid + 1:
                         for idx in range(min(n_valid, len(all_x) - 1)):
@@ -814,8 +879,7 @@ class FormatLearner:
                 # Fallback: equal division
                 col_w = table_width / max(n_valid, 1)
                 col_boundaries = [
-                    (round(bbox[0] + i * col_w, 1), round(bbox[0] + (i + 1) * col_w, 1))
-                    for i in range(n_valid)
+                    (round(bbox[0] + i * col_w, 1), round(bbox[0] + (i + 1) * col_w, 1)) for i in range(n_valid)
                 ]
 
             columns: list[TableColumn] = []
@@ -823,11 +887,7 @@ class FormatLearner:
                 x_start, x_end = col_boundaries[idx]
 
                 # Sample values using original column index
-                col_vals = [
-                    str(row[orig_i]).strip()
-                    for row in table[1:]
-                    if row and orig_i < len(row) and row[orig_i]
-                ]
+                col_vals = [str(row[orig_i]).strip() for row in table[1:] if row and orig_i < len(row) and row[orig_i]]
                 # Store for pattern detection, then determine format
                 table_values[header] = col_vals[:50]  # cap samples
 
@@ -835,14 +895,16 @@ class FormatLearner:
                 alignment = "right" if col_format in ("amount", "$#,##0.00") else "left"
                 max_chars = max((len(v) for v in col_vals), default=20) if col_vals else None
 
-                columns.append(TableColumn(
-                    header=header,
-                    x_start=x_start,
-                    x_end=x_end,
-                    format=col_format,
-                    max_chars=max_chars if col_format == "text" else None,
-                    alignment=alignment,
-                ))
+                columns.append(
+                    TableColumn(
+                        header=header,
+                        x_start=x_start,
+                        x_end=x_end,
+                        format=col_format,
+                        max_chars=max_chars if col_format == "text" else None,
+                        alignment=alignment,
+                    )
+                )
 
             # Post-validate: remove mostly-empty columns
             validated_columns: list[TableColumn] = []
@@ -905,10 +967,7 @@ class FormatLearner:
         page_h = layout.height
 
         # Focus on the middle portion of the page (skip header/footer)
-        mid_chars = [
-            c for c in chars
-            if page_h * 0.2 < float(c["top"]) < page_h * 0.9
-        ]
+        mid_chars = [c for c in chars if page_h * 0.2 < float(c["top"]) < page_h * 0.9]
         if not mid_chars:
             return None, table_values
 
@@ -938,10 +997,7 @@ class FormatLearner:
             words = self._chars_to_words(line_chars)
             word_x0s = [int(w["x0"]) for w in words]
             # Check how many column starts are represented
-            matched = sum(
-                1 for cs in col_starts
-                if any(abs(wx - cs) < 10 for wx in word_x0s)
-            )
+            matched = sum(1 for cs in col_starts if any(abs(wx - cs) < 10 for wx in word_x0s))
             if matched >= len(col_starts) * 0.6:
                 header_y = y_pos
                 header_texts = [w["text"] for w in sorted(words, key=lambda w: w["x0"])]
@@ -967,7 +1023,8 @@ class FormatLearner:
             refined_starts = self._cluster_x_positions(data_x0_counter, tolerance=8)
             min_count = max(3, int(data_row_count * 0.3))
             refined_starts = [
-                x for x in refined_starts
+                x
+                for x in refined_starts
                 if sum(data_x0_counter[p] for p in range(x - 8, x + 9) if p in data_x0_counter) >= min_count
             ]
             if len(refined_starts) >= 2:
@@ -1006,14 +1063,16 @@ class FormatLearner:
             alignment = "right" if col_format in ("amount", "$#,##0.00") else "left"
             max_chars = max((len(v) for v in col_vals), default=20) if col_vals else None
 
-            columns.append(TableColumn(
-                header=header_text,
-                x_start=round(x_start, 1),
-                x_end=round(x_end, 1),
-                format=col_format,
-                max_chars=max_chars if col_format == "text" else None,
-                alignment=alignment,
-            ))
+            columns.append(
+                TableColumn(
+                    header=header_text,
+                    x_start=round(x_start, 1),
+                    x_end=round(x_end, 1),
+                    format=col_format,
+                    max_chars=max_chars if col_format == "text" else None,
+                    alignment=alignment,
+                )
+            )
 
         # Post-validate: remove mostly-empty columns
         validated_columns: list[TableColumn] = []
@@ -1051,9 +1110,7 @@ class FormatLearner:
     # Step 5: Pattern Detection
     # ------------------------------------------------------------------
 
-    def _detect_description_patterns(
-        self, table_values: dict[str, list[str]]
-    ) -> list[DescriptionPattern]:
+    def _detect_description_patterns(self, table_values: dict[str, list[str]]) -> list[DescriptionPattern]:
         """Analyze description column values and extract structural patterns."""
         patterns: list[DescriptionPattern] = []
         seen_categories: set[str] = set()
@@ -1069,7 +1126,7 @@ class FormatLearner:
             # Fallback: use the column with the longest average string
             longest_col = max(
                 table_values.items(),
-                key=lambda kv: (sum(len(v) for v in kv[1]) / max(len(kv[1]), 1)),
+                key=lambda kv: sum(len(v) for v in kv[1]) / max(len(kv[1]), 1),
                 default=("", []),
             )
             desc_values = longest_col[1]
@@ -1078,10 +1135,12 @@ class FormatLearner:
             for val in desc_values:
                 if regex.search(val.strip()):
                     if _category not in seen_categories:
-                        patterns.append(DescriptionPattern(
-                            category=_category,
-                            pattern=pattern_template,
-                        ))
+                        patterns.append(
+                            DescriptionPattern(
+                                category=_category,
+                                pattern=pattern_template,
+                            )
+                        )
                         seen_categories.add(_category)
                     break  # one match per pattern is enough
 
@@ -1097,10 +1156,12 @@ class FormatLearner:
                         prefix_counter[prefix] += 1
             for prefix, count in prefix_counter.most_common(5):
                 if count >= 2:
-                    patterns.append(DescriptionPattern(
-                        category="general",
-                        pattern=f"{prefix} {{details}}",
-                    ))
+                    patterns.append(
+                        DescriptionPattern(
+                            category="general",
+                            pattern=f"{prefix} {{details}}",
+                        )
+                    )
 
         return patterns
 
@@ -1131,12 +1192,8 @@ class FormatLearner:
             if tables:
                 for t in tables:
                     if t and t[0]:
-                        row_texts = [
-                            str(cell).strip().lower() for cell in t[0] if cell
-                        ]
-                        matches = sum(
-                            1 for h in expected_headers if h in row_texts
-                        )
+                        row_texts = [str(cell).strip().lower() for cell in t[0] if cell]
+                        matches = sum(1 for h in expected_headers if h in row_texts)
                         if matches >= len(expected_headers) * 0.5:
                             rules.continuation_header = True
                             break
@@ -1164,24 +1221,16 @@ class FormatLearner:
     # Step 7 helpers: bank name and account type inference
     # ------------------------------------------------------------------
 
-    def _detect_bank_name(
-        self, page: pdfplumber.page.Page, layout: PageLayout
-    ) -> str:
+    def _detect_bank_name(self, page: pdfplumber.page.Page, layout: PageLayout) -> str:
         """Try to extract the bank name from the header area of the first page."""
         chars = page.chars or []
         if not chars:
             return "Detected Bank"
 
         # Look at text in the top 12% of the page with the largest font
-        header_chars = [
-            c for c in chars
-            if float(c["top"]) < layout.height * 0.12
-        ]
+        header_chars = [c for c in chars if float(c["top"]) < layout.height * 0.12]
         if not header_chars:
-            header_chars = [
-                c for c in chars
-                if float(c["top"]) < layout.height * 0.2
-            ]
+            header_chars = [c for c in chars if float(c["top"]) < layout.height * 0.2]
 
         if not header_chars:
             return "Detected Bank"
@@ -1231,8 +1280,13 @@ class FormatLearner:
         # Check bank name for credit card indicators
         name_lower = bank_name.lower()
         credit_card_name_keywords = [
-            "visa", "mastercard", "amex", "american express",
-            "discover", "credit card", "card by",
+            "visa",
+            "mastercard",
+            "amex",
+            "american express",
+            "discover",
+            "credit card",
+            "card by",
         ]
         if any(kw in name_lower for kw in credit_card_name_keywords):
             return AccountType.CREDIT_CARD
@@ -1242,11 +1296,19 @@ class FormatLearner:
             for sec in sections:
                 if sec.type == SectionType.ACCOUNT_SUMMARY and sec.fields:
                     all_labels = " ".join(f.label.lower() for f in sec.fields)
-                    if any(kw in all_labels for kw in [
-                        "minimum payment", "credit limit", "new balance",
-                        "payment due", "previous balance", "cash advance",
-                        "purchases", "new charges",
-                    ]):
+                    if any(
+                        kw in all_labels
+                        for kw in [
+                            "minimum payment",
+                            "credit limit",
+                            "new balance",
+                            "payment due",
+                            "previous balance",
+                            "cash advance",
+                            "purchases",
+                            "new charges",
+                        ]
+                    ):
                         return AccountType.CREDIT_CARD
 
         # Check table column headers
@@ -1254,19 +1316,24 @@ class FormatLearner:
             headers_lower = [c.header.lower() for c in table_section.columns]
             all_headers = " ".join(headers_lower)
 
-            if any(kw in all_headers for kw in [
-                "minimum payment", "credit limit", "new charges",
-                "payment due", "previous balance", "new balance",
-                "purchases", "cash advance",
-            ]):
+            if any(
+                kw in all_headers
+                for kw in [
+                    "minimum payment",
+                    "credit limit",
+                    "new charges",
+                    "payment due",
+                    "previous balance",
+                    "new balance",
+                    "purchases",
+                    "cash advance",
+                ]
+            ):
                 return AccountType.CREDIT_CARD
 
             # Credit cards often lack a running "balance" column but have credits/debits
             has_balance = any("balance" in h for h in headers_lower)
-            has_credit_debit = (
-                any("credit" in h for h in headers_lower)
-                and any("debit" in h for h in headers_lower)
-            )
+            has_credit_debit = any("credit" in h for h in headers_lower) and any("debit" in h for h in headers_lower)
             if has_credit_debit and not has_balance:
                 return AccountType.CREDIT_CARD
 
@@ -1297,9 +1364,7 @@ class FormatLearner:
 
         return groups
 
-    def _chars_to_words(
-        self, chars: list[dict[str, Any]], gap: float = 4.0
-    ) -> list[dict[str, Any]]:
+    def _chars_to_words(self, chars: list[dict[str, Any]], gap: float = 4.0) -> list[dict[str, Any]]:
         """Merge characters into words based on x-gaps."""
         if not chars:
             return []
@@ -1326,9 +1391,7 @@ class FormatLearner:
             words.append(current)
         return words
 
-    def _cluster_x_positions(
-        self, counter: Counter[int], tolerance: int = 8
-    ) -> list[int]:
+    def _cluster_x_positions(self, counter: Counter[int], tolerance: int = 8) -> list[int]:
         """Cluster nearby x positions and return the representative value for each cluster."""
         if not counter:
             return []
@@ -1366,10 +1429,19 @@ class FormatLearner:
             date_fmt = _detect_date_format(values)
             return date_fmt if date_fmt else "date"
 
-        if any(kw in header_lower for kw in (
-            "amount", "debit", "credit", "balance",
-            "withdrawal", "deposit", "charge", "payment",
-        )):
+        if any(
+            kw in header_lower
+            for kw in (
+                "amount",
+                "debit",
+                "credit",
+                "balance",
+                "withdrawal",
+                "deposit",
+                "charge",
+                "payment",
+            )
+        ):
             # Verify with sample values — don't trust header alone
             sample = [v for v in values[:20] if v.strip()]
             if sample:
@@ -1377,7 +1449,9 @@ class FormatLearner:
                 if match_count / len(sample) < 0.3:
                     logger.info(
                         "Header '%s' suggests amount but only %d/%d values match; returning 'text'",
-                        header, match_count, len(sample),
+                        header,
+                        match_count,
+                        len(sample),
                     )
                     return "text"
             amt_info = _detect_amount_format(values)
@@ -1397,17 +1471,18 @@ class FormatLearner:
 
         return "text"
 
-    def _detect_alternate_row_fill(
-        self, page: pdfplumber.page.Page, bbox: tuple[float, ...]
-    ) -> str | None:
+    def _detect_alternate_row_fill(self, page: pdfplumber.page.Page, bbox: tuple[float, ...]) -> str | None:
         """Check for alternating row background fills in the table area."""
         rects = page.rects or []
         table_rects = [
-            r for r in rects
-            if (float(r.get("top", 0)) >= bbox[1]
+            r
+            for r in rects
+            if (
+                float(r.get("top", 0)) >= bbox[1]
                 and float(r.get("bottom", 0)) <= bbox[3]
                 and float(r.get("x0", 0)) <= bbox[0] + 10
-                and float(r.get("x1", 0)) >= bbox[2] - 10)
+                and float(r.get("x1", 0)) >= bbox[2] - 10
+            )
         ]
 
         if not table_rects:
@@ -1426,9 +1501,7 @@ class FormatLearner:
             return Counter(fills).most_common(1)[0][0]
         return None
 
-    def _detect_header_underline(
-        self, page: pdfplumber.page.Page, bbox: tuple[float, ...] | None
-    ) -> bool:
+    def _detect_header_underline(self, page: pdfplumber.page.Page, bbox: tuple[float, ...] | None) -> bool:
         """Check if there is a horizontal line right below the table header row."""
         lines = page.lines or []
         if not lines:
@@ -1439,10 +1512,7 @@ class FormatLearner:
             if abs(float(ln["top"]) - float(ln["bottom"])) < 2:
                 width = float(ln["x1"]) - float(ln["x0"])
                 if width > 100:
-                    if bbox is None or (
-                        float(ln["top"]) >= bbox[1]
-                        and float(ln["top"]) <= bbox[1] + 30
-                    ):
+                    if bbox is None or (float(ln["top"]) >= bbox[1] and float(ln["top"]) <= bbox[1] + 30):
                         return True
         return False
 

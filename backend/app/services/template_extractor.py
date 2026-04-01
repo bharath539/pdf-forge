@@ -30,10 +30,27 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _KNOWN_FAMILIES = {
-    "helvetica", "arial", "courier", "times", "times new roman",
-    "times-roman", "verdana", "georgia", "tahoma", "calibri",
-    "cambria", "garamond", "palatino", "roboto", "open sans",
-    "lato", "inter", "futura", "optima", "gill sans", "avenir",
+    "helvetica",
+    "arial",
+    "courier",
+    "times",
+    "times new roman",
+    "times-roman",
+    "verdana",
+    "georgia",
+    "tahoma",
+    "calibri",
+    "cambria",
+    "garamond",
+    "palatino",
+    "roboto",
+    "open sans",
+    "lato",
+    "inter",
+    "futura",
+    "optima",
+    "gill sans",
+    "avenir",
 }
 
 
@@ -41,9 +58,16 @@ def _clean_font_family(fontname: str) -> str:
     """Extract a clean font family, mapping proprietary names to Helvetica."""
     name = fontname
     for suffix in [
-        "-Bold", "-Italic", "-BoldItalic", "-Light",
-        ",Bold", ",Italic", ",BoldItalic",
-        "-Regular", ",Regular", "-Roman",
+        "-Bold",
+        "-Italic",
+        "-BoldItalic",
+        "-Light",
+        ",Bold",
+        ",Italic",
+        ",BoldItalic",
+        "-Regular",
+        ",Regular",
+        "-Roman",
     ]:
         name = name.replace(suffix, "")
     if "+" in name:
@@ -86,6 +110,7 @@ def _hex_color(color: Any) -> str:
 # ---------------------------------------------------------------------------
 # Word grouping
 # ---------------------------------------------------------------------------
+
 
 def _chars_to_words(chars: list[dict[str, Any]], gap: float = 3.0) -> list[dict[str, Any]]:
     """Merge characters into words based on x-gaps.
@@ -150,8 +175,13 @@ def _cluster_lines(chars: list[dict[str, Any]], tolerance: float = 2.0) -> dict[
 # ---------------------------------------------------------------------------
 
 _CC_KEYWORDS = [
-    "visa", "mastercard", "amex", "american express",
-    "discover", "credit card", "card by",
+    "visa",
+    "mastercard",
+    "amex",
+    "american express",
+    "discover",
+    "credit card",
+    "card by",
 ]
 
 
@@ -162,13 +192,16 @@ def _infer_account_type(bank_name: str, text_elements: list[TextElement]) -> Acc
         return AccountType.CREDIT_CARD
 
     # Check all text on first page for credit card indicators
-    page0_text = " ".join(
-        te.text.lower() for te in text_elements if te.page == 0
-    )
+    page0_text = " ".join(te.text.lower() for te in text_elements if te.page == 0)
     cc_indicators = [
-        "minimum payment", "credit limit", "new balance",
-        "payment due", "previous balance", "cash advance",
-        "annual percentage rate", "apr",
+        "minimum payment",
+        "credit limit",
+        "new balance",
+        "payment due",
+        "previous balance",
+        "cash advance",
+        "annual percentage rate",
+        "apr",
     ]
     if sum(1 for kw in cc_indicators if kw in page0_text) >= 2:
         return AccountType.CREDIT_CARD
@@ -198,18 +231,17 @@ class TemplateExtractor:
 
         with pdfplumber.open(pdf_bytes) as pdf:
             for page_idx, page in enumerate(pdf.pages):
-                page_dims.append(PageDimensions(
-                    width=float(page.width),
-                    height=float(page.height),
-                ))
+                page_dims.append(
+                    PageDimensions(
+                        width=float(page.width),
+                        height=float(page.height),
+                    )
+                )
 
                 # --- Extract text elements (grouped into words) ---
                 chars = page.chars or []
                 # Filter out invisible/tiny characters
-                visible_chars = [
-                    c for c in chars
-                    if float(c.get("size", 0)) >= _MIN_FONT_SIZE
-                ]
+                visible_chars = [c for c in chars if float(c.get("size", 0)) >= _MIN_FONT_SIZE]
 
                 line_groups = _cluster_lines(visible_chars)
                 for y_pos, line_chars in sorted(line_groups.items()):
@@ -218,54 +250,62 @@ class TemplateExtractor:
                         text = w["text"].strip()
                         if not text:
                             continue
-                        text_elements.append(TextElement(
-                            page=page_idx,
-                            x=round(w["x0"], 2),
-                            y=round(w["top"], 2),
-                            text=text,
-                            font_family=_clean_font_family(w["fontname"]),
-                            font_size=round(w["size"], 1),
-                            font_weight=_font_weight(w["fontname"]),
-                            color=_hex_color(w["color"]),
-                            width=round(w["x1"] - w["x0"], 2),
-                        ))
+                        text_elements.append(
+                            TextElement(
+                                page=page_idx,
+                                x=round(w["x0"], 2),
+                                y=round(w["top"], 2),
+                                text=text,
+                                font_family=_clean_font_family(w["fontname"]),
+                                font_size=round(w["size"], 1),
+                                font_weight=_font_weight(w["fontname"]),
+                                color=_hex_color(w["color"]),
+                                width=round(w["x1"] - w["x0"], 2),
+                            )
+                        )
 
                 # --- Extract lines ---
-                for ln in (page.lines or []):
-                    line_elements.append(LineElement(
-                        page=page_idx,
-                        x0=round(float(ln["x0"]), 2),
-                        y0=round(float(ln["top"]), 2),
-                        x1=round(float(ln["x1"]), 2),
-                        y1=round(float(ln["bottom"]), 2),
-                        stroke_color=_hex_color(ln.get("stroking_color")),
-                        stroke_width=round(float(ln.get("linewidth", 0.5)), 2),
-                    ))
+                for ln in page.lines or []:
+                    line_elements.append(
+                        LineElement(
+                            page=page_idx,
+                            x0=round(float(ln["x0"]), 2),
+                            y0=round(float(ln["top"]), 2),
+                            x1=round(float(ln["x1"]), 2),
+                            y1=round(float(ln["bottom"]), 2),
+                            stroke_color=_hex_color(ln.get("stroking_color")),
+                            stroke_width=round(float(ln.get("linewidth", 0.5)), 2),
+                        )
+                    )
 
                 # --- Extract rectangles ---
-                for r in (page.rects or []):
+                for r in page.rects or []:
                     fill = r.get("non_stroking_color")
                     stroke = r.get("stroking_color")
-                    rect_elements.append(RectElement(
-                        page=page_idx,
-                        x0=round(float(r["x0"]), 2),
-                        y0=round(float(r["top"]), 2),
-                        x1=round(float(r["x1"]), 2),
-                        y1=round(float(r["bottom"]), 2),
-                        fill_color=_hex_color(fill) if fill else None,
-                        stroke_color=_hex_color(stroke) if stroke else None,
-                        stroke_width=round(float(r.get("linewidth", 0)), 2),
-                    ))
+                    rect_elements.append(
+                        RectElement(
+                            page=page_idx,
+                            x0=round(float(r["x0"]), 2),
+                            y0=round(float(r["top"]), 2),
+                            x1=round(float(r["x1"]), 2),
+                            y1=round(float(r["bottom"]), 2),
+                            fill_color=_hex_color(fill) if fill else None,
+                            stroke_color=_hex_color(stroke) if stroke else None,
+                            stroke_width=round(float(r.get("linewidth", 0)), 2),
+                        )
+                    )
 
                 # --- Extract images (bounding boxes only) ---
-                for img in (page.images or []):
-                    image_elements.append(ImageElement(
-                        page=page_idx,
-                        x0=round(float(img["x0"]), 2),
-                        y0=round(float(img["top"]), 2),
-                        x1=round(float(img["x1"]), 2),
-                        y1=round(float(img["bottom"]), 2),
-                    ))
+                for img in page.images or []:
+                    image_elements.append(
+                        ImageElement(
+                            page=page_idx,
+                            x0=round(float(img["x0"]), 2),
+                            y0=round(float(img["top"]), 2),
+                            x1=round(float(img["x1"]), 2),
+                            y1=round(float(img["bottom"]), 2),
+                        )
+                    )
 
         # Detect bank name from largest font on page 0
         bank_name = self._detect_bank_name(text_elements)
@@ -285,8 +325,11 @@ class TemplateExtractor:
 
         logger.info(
             "Extraction complete: %d text, %d lines, %d rects, %d images across %d pages",
-            len(text_elements), len(line_elements), len(rect_elements),
-            len(image_elements), len(page_dims),
+            len(text_elements),
+            len(line_elements),
+            len(rect_elements),
+            len(image_elements),
+            len(page_dims),
         )
         return template
 
@@ -314,5 +357,6 @@ class TemplateExtractor:
 
         # Clean up
         import re
+
         name = re.sub(r"\s+\d[\d/\-\.]+\s*$", "", name).strip()
         return name if name else "Detected Bank"

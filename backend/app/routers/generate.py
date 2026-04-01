@@ -68,6 +68,7 @@ async def _fetch_template(template_id: UUID) -> tuple[PDFTemplate, str, str]:
 
 class _V1Fallback(Exception):
     """Signal to use V1 generator."""
+
     def __init__(self, schema, bank_name: str, account_type: str):
         self.schema = schema
         self.bank_name = bank_name
@@ -101,10 +102,7 @@ async def _log_generation(
 
 
 def _sanitize_filename(name: str) -> str:
-    return "".join(
-        ch if ch.isalnum() or ch in ("_", "-", ".") else "_"
-        for ch in name
-    )
+    return "".join(ch if ch.isalnum() or ch in ("_", "-", ".") else "_" for ch in name)
 
 
 @router.post("/generate")
@@ -115,15 +113,19 @@ async def generate_pdf(params: GenerationParams) -> StreamingResponse:
     except _V1Fallback as v1:
         # V1 fallback
         from app.services.synthetic_generator import SyntheticGenerator
+
         generator = SyntheticGenerator()
         pdf_buffer = generator.generate(v1.schema, params)
         await _log_generation(
-            schema_id=params.schema_id, scenario=params.scenario.value,
-            parameters=params.model_dump(), is_template=False,
+            schema_id=params.schema_id,
+            scenario=params.scenario.value,
+            parameters=params.model_dump(),
+            is_template=False,
         )
         filename = _sanitize_filename(f"{v1.bank_name}_{v1.account_type}_{params.scenario.value}.pdf")
         return StreamingResponse(
-            pdf_buffer, media_type="application/pdf",
+            pdf_buffer,
+            media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
@@ -152,15 +154,19 @@ async def generate_preview(params: GenerationParams) -> StreamingResponse:
         template, bank_name, account_type = await _fetch_template(params.schema_id)
     except _V1Fallback as v1:
         from app.services.synthetic_generator import SyntheticGenerator
+
         generator = SyntheticGenerator()
         pdf_buffer = generator.generate_preview(v1.schema, params)
         await _log_generation(
-            schema_id=params.schema_id, scenario=params.scenario.value,
-            parameters=params.model_dump(), is_template=False,
+            schema_id=params.schema_id,
+            scenario=params.scenario.value,
+            parameters=params.model_dump(),
+            is_template=False,
         )
         filename = _sanitize_filename(f"{v1.bank_name}_{v1.account_type}_preview.pdf")
         return StreamingResponse(
-            pdf_buffer, media_type="application/pdf",
+            pdf_buffer,
+            media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
@@ -189,19 +195,25 @@ async def generate_batch(body: BatchGenerationRequest) -> StreamingResponse:
         template, bank_name, account_type = await _fetch_template(body.schema_id)
     except _V1Fallback as v1:
         from app.services.synthetic_generator import SyntheticGenerator
+
         generator = SyntheticGenerator()
         zip_buffer = generator.generate_batch(
-            schema=v1.schema, scenarios=body.scenarios,
-            start_date=body.start_date, seed=body.seed,
+            schema=v1.schema,
+            scenarios=body.scenarios,
+            start_date=body.start_date,
+            seed=body.seed,
         )
         await _log_generation(
-            schema_id=body.schema_id, scenario="batch",
-            parameters=body.model_dump(), file_count=len(body.scenarios),
+            schema_id=body.schema_id,
+            scenario="batch",
+            parameters=body.model_dump(),
+            file_count=len(body.scenarios),
             is_template=False,
         )
         filename = _sanitize_filename(f"{v1.bank_name}_{v1.account_type}_batch.zip")
         return StreamingResponse(
-            zip_buffer, media_type="application/zip",
+            zip_buffer,
+            media_type="application/zip",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 

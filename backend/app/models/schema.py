@@ -43,6 +43,7 @@ class ElementType(str, Enum):
 
 # --- Page Layout ---
 
+
 class PageLayout(BaseModel):
     width: float = Field(description="Page width in points")
     height: float = Field(description="Page height in points")
@@ -58,6 +59,7 @@ class Margins(BaseModel):
 
 # --- Fonts ---
 
+
 class FontSpec(BaseModel):
     role: FontRole
     family: str = Field(description="Font family name")
@@ -67,6 +69,7 @@ class FontSpec(BaseModel):
 
 
 # --- Section Elements ---
+
 
 class BoundingBox(BaseModel):
     x0: float
@@ -112,12 +115,14 @@ class Section(BaseModel):
 
 # --- Description Patterns ---
 
+
 class DescriptionPattern(BaseModel):
     category: str = Field(description="e.g. debit_card, ach, check, transfer, atm")
     pattern: str = Field(description="Pattern with placeholders: {merchant}, {city}, {state}, etc.")
 
 
 # --- Page Break Rules ---
+
 
 class PageBreakRules(BaseModel):
     min_rows_before_break: int = Field(default=3)
@@ -126,6 +131,7 @@ class PageBreakRules(BaseModel):
 
 
 # --- Full Format Schema ---
+
 
 class FormatSchema(BaseModel):
     schema_version: str = Field(default="1.0")
@@ -140,6 +146,7 @@ class FormatSchema(BaseModel):
 
 
 # --- API Response Models ---
+
 
 class FormatSchemaRecord(BaseModel):
     id: UUID

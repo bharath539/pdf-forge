@@ -16,6 +16,7 @@ from app.services.data_faker import TransactionFaker
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default_params(**overrides) -> GenerationParams:
     """Build GenerationParams with sensible defaults, applying overrides."""
     defaults = dict(

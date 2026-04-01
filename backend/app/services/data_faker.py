@@ -17,6 +17,7 @@ from app.models.schema import DescriptionPattern
 # Transaction dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Transaction:
     date: date
@@ -31,50 +32,109 @@ class Transaction:
 # ---------------------------------------------------------------------------
 
 MERCHANTS = [
-    "Walmart", "Target", "Starbucks", "Shell", "Costco", "Amazon",
-    "Whole Foods", "Trader Joe's", "Walgreens", "CVS Pharmacy",
-    "Home Depot", "Lowe's", "McDonald's", "Chick-fil-A", "Chipotle",
-    "Subway", "Panera Bread", "Dunkin", "Kroger", "Safeway",
-    "Publix", "Aldi", "Best Buy", "Apple Store", "Nike",
-    "Uber Eats", "DoorDash", "Grubhub", "Chevron", "BP",
-    "7-Eleven", "Petsmart", "Bath & Body Works", "TJ Maxx",
-    "Nordstrom", "Macy's", "Gap", "Old Navy", "Ross",
+    "Walmart",
+    "Target",
+    "Starbucks",
+    "Shell",
+    "Costco",
+    "Amazon",
+    "Whole Foods",
+    "Trader Joe's",
+    "Walgreens",
+    "CVS Pharmacy",
+    "Home Depot",
+    "Lowe's",
+    "McDonald's",
+    "Chick-fil-A",
+    "Chipotle",
+    "Subway",
+    "Panera Bread",
+    "Dunkin",
+    "Kroger",
+    "Safeway",
+    "Publix",
+    "Aldi",
+    "Best Buy",
+    "Apple Store",
+    "Nike",
+    "Uber Eats",
+    "DoorDash",
+    "Grubhub",
+    "Chevron",
+    "BP",
+    "7-Eleven",
+    "Petsmart",
+    "Bath & Body Works",
+    "TJ Maxx",
+    "Nordstrom",
+    "Macy's",
+    "Gap",
+    "Old Navy",
+    "Ross",
     "Dollar Tree",
 ]
 
 ACH_DEBIT_ORIGINATORS = [
-    "GEICO INSURANCE", "STATE FARM INS", "PROGRESSIVE INS",
-    "COMCAST CABLE", "AT&T SERVICES", "VERIZON WIRELESS",
-    "DUKE ENERGY", "PG&E UTILITY", "NATIONAL GRID",
-    "PLANET FITNESS", "LA FITNESS", "NETFLIX.COM",
-    "SPOTIFY USA", "ADOBE SYSTEMS", "MICROSOFT 365",
-    "STUDENT LOAN CORP", "ALLY AUTO PYMT", "TOYOTA FINANCIAL",
+    "GEICO INSURANCE",
+    "STATE FARM INS",
+    "PROGRESSIVE INS",
+    "COMCAST CABLE",
+    "AT&T SERVICES",
+    "VERIZON WIRELESS",
+    "DUKE ENERGY",
+    "PG&E UTILITY",
+    "NATIONAL GRID",
+    "PLANET FITNESS",
+    "LA FITNESS",
+    "NETFLIX.COM",
+    "SPOTIFY USA",
+    "ADOBE SYSTEMS",
+    "MICROSOFT 365",
+    "STUDENT LOAN CORP",
+    "ALLY AUTO PYMT",
+    "TOYOTA FINANCIAL",
 ]
 
 ACH_CREDIT_ORIGINATORS = [
-    "ACME CORP PAYROLL", "INITECH PAYROLL", "GLOBEX CORP HR",
-    "CONTOSO LTD PAYRL", "NORTHWIND TRADERS", "FABRIKAM INC",
-    "DUNDER MIFFLIN PR", "STARK INDUSTRIES", "WAYNE ENTERPRISES",
-    "IRS TREAS TAX REF", "STATE TAX REFUND", "VENMO CASHOUT",
-    "PAYPAL TRANSFER", "ZELLE TRANSFER",
+    "ACME CORP PAYROLL",
+    "INITECH PAYROLL",
+    "GLOBEX CORP HR",
+    "CONTOSO LTD PAYRL",
+    "NORTHWIND TRADERS",
+    "FABRIKAM INC",
+    "DUNDER MIFFLIN PR",
+    "STARK INDUSTRIES",
+    "WAYNE ENTERPRISES",
+    "IRS TREAS TAX REF",
+    "STATE TAX REFUND",
+    "VENMO CASHOUT",
+    "PAYPAL TRANSFER",
+    "ZELLE TRANSFER",
 ]
 
 ATM_BANKS = [
-    "Chase Bank", "Bank of America", "Wells Fargo",
-    "US Bank", "PNC Bank", "TD Bank",
-    "Citizens Bank", "Capital One", "Truist",
+    "Chase Bank",
+    "Bank of America",
+    "Wells Fargo",
+    "US Bank",
+    "PNC Bank",
+    "TD Bank",
+    "Citizens Bank",
+    "Capital One",
+    "Truist",
 ]
 
 HOLIDAYS = {
-    (1, 1),   # New Year's Day
-    (7, 4),   # Independence Day
-    (12, 25), # Christmas Day
+    (1, 1),  # New Year's Day
+    (7, 4),  # Independence Day
+    (12, 25),  # Christmas Day
 }
 
 
 # ---------------------------------------------------------------------------
 # TransactionFaker
 # ---------------------------------------------------------------------------
+
 
 class TransactionFaker:
     """Generates realistic fake data for populating synthetic PDFs.

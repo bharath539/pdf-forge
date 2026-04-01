@@ -24,25 +24,21 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Amounts: $1,234.56, -$50.00, ($123.45), 1234.56
-_AMOUNT_RE = re.compile(
-    r"^[\$€£]?\s*[\-\(]?\s*\d{1,3}(?:[,]\d{3})*(?:\.\d{1,2})?\s*[\)\-]?$"
-)
+_AMOUNT_RE = re.compile(r"^[\$€£]?\s*[\-\(]?\s*\d{1,3}(?:[,]\d{3})*(?:\.\d{1,2})?\s*[\)\-]?$")
 
 # Standalone dollar amounts that are clearly money
-_STRICT_AMOUNT_RE = re.compile(
-    r"^\$\s*[\-\(]?\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*[\)]?$"
-)
+_STRICT_AMOUNT_RE = re.compile(r"^\$\s*[\-\(]?\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*[\)]?$")
 
 # Date patterns
 _DATE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"^\d{2}/\d{2}/\d{4}$"),         # MM/DD/YYYY
-    re.compile(r"^\d{1,2}/\d{2}/\d{4}$"),        # M/DD/YYYY
-    re.compile(r"^\d{2}/\d{2}/\d{2}$"),           # MM/DD/YY
-    re.compile(r"^\d{2}/\d{2}$"),                 # MM/DD
-    re.compile(r"^\d{1,2}/\d{1,2}$"),             # M/D
+    re.compile(r"^\d{2}/\d{2}/\d{4}$"),  # MM/DD/YYYY
+    re.compile(r"^\d{1,2}/\d{2}/\d{4}$"),  # M/DD/YYYY
+    re.compile(r"^\d{2}/\d{2}/\d{2}$"),  # MM/DD/YY
+    re.compile(r"^\d{2}/\d{2}$"),  # MM/DD
+    re.compile(r"^\d{1,2}/\d{1,2}$"),  # M/D
     re.compile(r"^\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4}$"),  # DD Mon YYYY
     re.compile(r"^[A-Z][a-z]{2}\s+\d{1,2},?\s+\d{4}$"),  # Mon DD, YYYY
-    re.compile(r"^\d{4}-\d{2}-\d{2}$"),           # YYYY-MM-DD
+    re.compile(r"^\d{4}-\d{2}-\d{2}$"),  # YYYY-MM-DD
 ]
 
 # Account numbers: sequences of digits, possibly masked
@@ -54,23 +50,17 @@ _MASKED_ACCT_RE = re.compile(
 )
 
 # Phone numbers
-_PHONE_RE = re.compile(
-    r"^[\(\d][\d\s\(\)\-\.]{8,14}$"
-)
+_PHONE_RE = re.compile(r"^[\(\d][\d\s\(\)\-\.]{8,14}$")
 
 # Email
-_EMAIL_RE = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 # Address patterns
 _STREET_RE = re.compile(
     r"^\d+\s+.+\b(?:St|Dr|Ave|Blvd|Ln|Rd|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter|Loop)\b",
     re.IGNORECASE,
 )
-_CITY_STATE_ZIP_RE = re.compile(
-    r"^[A-Z][a-zA-Z\s]+,?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?$"
-)
+_CITY_STATE_ZIP_RE = re.compile(r"^[A-Z][a-zA-Z\s]+,?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?$")
 _PO_BOX_RE = re.compile(r"^P\.?O\.?\s+BOX\s+\d+", re.IGNORECASE)
 
 # Reference numbers: alphanumeric strings (8+ chars, mix of letters and digits)
@@ -78,33 +68,80 @@ _REF_NUM_RE = re.compile(r"^[A-Z0-9]{8,}$")
 
 # Structural labels that should never be classified as data
 _STRUCTURAL_LABELS = {
-    "account summary", "transaction detail", "transactions",
-    "account activity", "statement summary", "payment information",
-    "interest charge calculation", "fees", "interest charged",
-    "total", "subtotal", "total payments", "total purchases",
-    "total fees", "total interest", "total credits", "total debits",
-    "total deposits", "total withdrawals", "beginning balance",
-    "ending balance", "previous balance", "new balance",
-    "minimum payment due", "payment due date", "credit limit",
-    "available credit", "cash advance limit", "closing date",
-    "opening date", "statement period", "account number",
-    "page", "of", "date", "description", "amount", "balance",
-    "credit", "debit", "check", "reference", "trans date",
-    "post date", "posting date", "type", "category",
+    "account summary",
+    "transaction detail",
+    "transactions",
+    "account activity",
+    "statement summary",
+    "payment information",
+    "interest charge calculation",
+    "fees",
+    "interest charged",
+    "total",
+    "subtotal",
+    "total payments",
+    "total purchases",
+    "total fees",
+    "total interest",
+    "total credits",
+    "total debits",
+    "total deposits",
+    "total withdrawals",
+    "beginning balance",
+    "ending balance",
+    "previous balance",
+    "new balance",
+    "minimum payment due",
+    "payment due date",
+    "credit limit",
+    "available credit",
+    "cash advance limit",
+    "closing date",
+    "opening date",
+    "statement period",
+    "account number",
+    "page",
+    "of",
+    "date",
+    "description",
+    "amount",
+    "balance",
+    "credit",
+    "debit",
+    "check",
+    "reference",
+    "trans date",
+    "post date",
+    "posting date",
+    "type",
+    "category",
 }
 
 # Section header keywords that are structural
 _SECTION_KEYWORDS = [
-    "statement", "summary", "detail", "activity", "information",
-    "calculation", "warning", "notice", "important", "page",
-    "continued", "fees charged", "interest", "payment",
-    "rewards", "cash back",
+    "statement",
+    "summary",
+    "detail",
+    "activity",
+    "information",
+    "calculation",
+    "warning",
+    "notice",
+    "important",
+    "page",
+    "continued",
+    "fees charged",
+    "interest",
+    "payment",
+    "rewards",
+    "cash back",
 ]
 
 
 # ---------------------------------------------------------------------------
 # DataClassifier
 # ---------------------------------------------------------------------------
+
 
 class DataClassifier:
     """Classifies text elements in a template as structural or data."""
@@ -129,10 +166,7 @@ class DataClassifier:
         # Compute data field summary
         self._compute_summary(template)
 
-        classified = sum(
-            1 for te in template.text_elements
-            if te.element_type == ElementCategory.DATA_PLACEHOLDER
-        )
+        classified = sum(1 for te in template.text_elements if te.element_type == ElementCategory.DATA_PLACEHOLDER)
         logger.info("Classified %d elements as data placeholders", classified)
 
         return template
@@ -219,8 +253,7 @@ class DataClassifier:
         as a vertical cluster of 2-4 lines.
         """
         page0_texts = [
-            te for te in template.text_elements
-            if te.page == 0 and te.element_type == ElementCategory.STRUCTURAL
+            te for te in template.text_elements if te.page == 0 and te.element_type == ElementCategory.STRUCTURAL
         ]
         if not page0_texts:
             return
@@ -279,9 +312,7 @@ class DataClassifier:
         elements in those rows as descriptions.
         """
         for page_idx in range(template.page_count):
-            page_texts = [
-                te for te in template.text_elements if te.page == page_idx
-            ]
+            page_texts = [te for te in template.text_elements if te.page == page_idx]
             if not page_texts:
                 continue
 
@@ -291,12 +322,8 @@ class DataClassifier:
             # Find rows that have both a date and an amount element
             transaction_rows: list[tuple[float, list[TextElement]]] = []
             for y_pos, elements in rows:
-                has_date = any(
-                    te.data_type == DataType.DATE for te in elements
-                )
-                has_amount = any(
-                    te.data_type == DataType.AMOUNT for te in elements
-                )
+                has_date = any(te.data_type == DataType.DATE for te in elements)
+                has_amount = any(te.data_type == DataType.AMOUNT for te in elements)
                 if has_date and has_amount:
                     transaction_rows.append((y_pos, elements))
 
@@ -326,12 +353,9 @@ class DataClassifier:
                 # Compute row height from consecutive rows
                 if len(transaction_rows) >= 2:
                     gaps = [
-                        transaction_rows[i + 1][0] - transaction_rows[i][0]
-                        for i in range(len(transaction_rows) - 1)
+                        transaction_rows[i + 1][0] - transaction_rows[i][0] for i in range(len(transaction_rows) - 1)
                     ]
-                    template.transaction_row_height = round(
-                        sum(gaps) / len(gaps), 2
-                    )
+                    template.transaction_row_height = round(sum(gaps) / len(gaps), 2)
 
     def _group_into_rows(
         self, elements: list[TextElement], tolerance: float = 3.0

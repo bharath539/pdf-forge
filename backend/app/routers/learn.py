@@ -88,25 +88,26 @@ async def learn_format(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid account_type: {account_type}. "
-                f"Must be one of: {[t.value for t in AccountType]}",
+                detail=f"Invalid account_type: {account_type}. Must be one of: {[t.value for t in AccountType]}",
             )
         template.account_type = parsed_type
     if display_name is not None:
         template.display_name = display_name
     else:
-        template.display_name = (
-            f"{template.bank_name} "
-            f"{template.account_type.value.replace('_', ' ').title()}"
-        )
+        template.display_name = f"{template.bank_name} {template.account_type.value.replace('_', ' ').title()}"
 
     # --- Compute data field count ---
     summary = template.data_field_summary
     data_field_count = (
-        summary.amounts + summary.dates + summary.names
-        + summary.addresses + summary.account_numbers
-        + summary.descriptions + summary.phones
-        + summary.emails + summary.references
+        summary.amounts
+        + summary.dates
+        + summary.names
+        + summary.addresses
+        + summary.account_numbers
+        + summary.descriptions
+        + summary.phones
+        + summary.emails
+        + summary.references
     )
 
     # --- Save to database ---

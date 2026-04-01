@@ -27,20 +27,60 @@ class SchemaSanitizer:
 
     # Known-safe font family names (case-insensitive matching)
     SAFE_FONT_FAMILIES: set[str] = {
-        "Helvetica", "Arial", "Courier", "Times",
-        "Times New Roman", "Verdana", "Georgia", "Trebuchet MS",
-        "Palatino", "Garamond", "Bookman", "Comic Sans MS",
-        "Impact", "Lucida Console", "Lucida Sans", "Tahoma",
-        "Calibri", "Cambria", "Consolas", "Segoe UI",
-        "Roboto", "Open Sans", "Lato", "Montserrat", "Noto Sans",
-        "Source Sans Pro", "Raleway", "PT Sans", "Ubuntu",
-        "Fira Sans", "Inter", "Poppins", "Nunito",
-        "Helvetica Neue", "SF Pro", "SF Pro Display", "SF Pro Text",
-        "Menlo", "Monaco", "Courier New", "DejaVu Sans",
-        "Liberation Sans", "Liberation Serif", "Liberation Mono",
-        "Avenir", "Avenir Next", "Futura", "Gill Sans",
-        "Optima", "Didot", "Baskerville", "Copperplate",
-        "American Typewriter", "Rockwell",
+        "Helvetica",
+        "Arial",
+        "Courier",
+        "Times",
+        "Times New Roman",
+        "Verdana",
+        "Georgia",
+        "Trebuchet MS",
+        "Palatino",
+        "Garamond",
+        "Bookman",
+        "Comic Sans MS",
+        "Impact",
+        "Lucida Console",
+        "Lucida Sans",
+        "Tahoma",
+        "Calibri",
+        "Cambria",
+        "Consolas",
+        "Segoe UI",
+        "Roboto",
+        "Open Sans",
+        "Lato",
+        "Montserrat",
+        "Noto Sans",
+        "Source Sans Pro",
+        "Raleway",
+        "PT Sans",
+        "Ubuntu",
+        "Fira Sans",
+        "Inter",
+        "Poppins",
+        "Nunito",
+        "Helvetica Neue",
+        "SF Pro",
+        "SF Pro Display",
+        "SF Pro Text",
+        "Menlo",
+        "Monaco",
+        "Courier New",
+        "DejaVu Sans",
+        "Liberation Sans",
+        "Liberation Serif",
+        "Liberation Mono",
+        "Avenir",
+        "Avenir Next",
+        "Futura",
+        "Gill Sans",
+        "Optima",
+        "Didot",
+        "Baskerville",
+        "Copperplate",
+        "American Typewriter",
+        "Rockwell",
     }
 
     # Lowercase lookup for case-insensitive font matching
@@ -48,35 +88,89 @@ class SchemaSanitizer:
 
     # Known-safe column header labels
     _SAFE_LABELS: set[str] = {
-        "date", "description", "amount", "balance", "credit", "debit",
-        "withdrawal", "deposit", "check", "check number", "reference",
-        "transaction", "transaction date", "posting date", "type",
-        "category", "memo", "details", "status", "fee", "interest",
-        "principal", "payment", "total", "subtotal", "opening balance",
-        "closing balance", "previous balance", "new balance",
-        "statement period", "account number", "account type",
-        "page", "statement date",
+        "date",
+        "description",
+        "amount",
+        "balance",
+        "credit",
+        "debit",
+        "withdrawal",
+        "deposit",
+        "check",
+        "check number",
+        "reference",
+        "transaction",
+        "transaction date",
+        "posting date",
+        "type",
+        "category",
+        "memo",
+        "details",
+        "status",
+        "fee",
+        "interest",
+        "principal",
+        "payment",
+        "total",
+        "subtotal",
+        "opening balance",
+        "closing balance",
+        "previous balance",
+        "new balance",
+        "statement period",
+        "account number",
+        "account type",
+        "page",
+        "statement date",
     }
 
     # Enum values from schema models that should never be redacted
     _SAFE_ENUM_VALUES: set[str] = {
         # AccountType
-        "checking", "savings", "credit_card", "investment", "loan",
+        "checking",
+        "savings",
+        "credit_card",
+        "investment",
+        "loan",
         # FontRole
-        "header", "subheader", "body", "footer", "table_header", "table_body",
+        "header",
+        "subheader",
+        "body",
+        "footer",
+        "table_header",
+        "table_body",
         # SectionType
-        "account_summary", "transaction_table", "disclaimer",
+        "account_summary",
+        "transaction_table",
+        "disclaimer",
         # ElementType
-        "logo_placeholder", "text_field", "line_rule", "background_fill",
+        "logo_placeholder",
+        "text_field",
+        "line_rule",
+        "background_fill",
         # Font weights
-        "normal", "bold", "light",
+        "normal",
+        "bold",
+        "light",
         # Alignments
-        "left", "right", "center",
+        "left",
+        "right",
+        "center",
         # Description pattern categories
-        "debit_card", "ach", "check", "transfer", "atm",
-        "wire", "pos", "online", "mobile", "recurring",
+        "debit_card",
+        "ach",
+        "check",
+        "transfer",
+        "atm",
+        "wire",
+        "pos",
+        "online",
+        "mobile",
+        "recurring",
         # Format types
-        "text", "date", "amount",
+        "text",
+        "date",
+        "amount",
     }
 
     # PII detection patterns — order matters, more specific first
@@ -123,10 +217,7 @@ class SchemaSanitizer:
             return result
 
         if isinstance(data, list):
-            return [
-                self.sanitize_dict(item, path=f"{path}[{i}]")
-                for i, item in enumerate(item for item in data)
-            ]
+            return [self.sanitize_dict(item, path=f"{path}[{i}]") for i, item in enumerate(item for item in data)]
 
         if isinstance(data, str):
             return self._sanitize_string(data, path)
@@ -140,7 +231,9 @@ class SchemaSanitizer:
         if len(value) > self.MAX_STRING_LENGTH:
             logger.warning(
                 "Truncated oversized string at '%s' (length %d > %d, pattern: string_length)",
-                path, len(value), self.MAX_STRING_LENGTH,
+                path,
+                len(value),
+                self.MAX_STRING_LENGTH,
             )
             value = value[: self.MAX_STRING_LENGTH]
 
@@ -153,7 +246,8 @@ class SchemaSanitizer:
             if pattern.search(value):
                 logger.warning(
                     "Redacted PII at '%s' (pattern: %s)",
-                    path, pattern_name,
+                    path,
+                    pattern_name,
                 )
                 return self.REDACTED
 

@@ -58,6 +58,7 @@ def _resolve_font(family: str, weight: str = "normal") -> str:
 # Formatting helpers
 # ---------------------------------------------------------------------------
 
+
 def format_date(d: date, fmt: str) -> str:
     """Apply a date format pattern.
 
@@ -170,7 +171,7 @@ def _draw_text(
 # Default dimensions / fallbacks
 # ---------------------------------------------------------------------------
 
-_DEFAULT_PAGE_WIDTH = 612.0   # US Letter
+_DEFAULT_PAGE_WIDTH = 612.0  # US Letter
 _DEFAULT_PAGE_HEIGHT = 792.0
 _DEFAULT_MARGINS = Margins(top=72, right=54, bottom=72, left=54)
 _DEFAULT_ROW_HEIGHT = 14.0
@@ -180,6 +181,7 @@ _FOOTER_HEIGHT = 50.0
 # ---------------------------------------------------------------------------
 # SyntheticGenerator
 # ---------------------------------------------------------------------------
+
 
 class SyntheticGenerator:
     """Generates synthetic PDF documents from learned format schemas.
@@ -204,10 +206,14 @@ class SyntheticGenerator:
         faker = TransactionFaker(seed=params.seed)
         buf = io.BytesIO()
 
-        page = schema.page if schema.page else PageLayout(
-            width=_DEFAULT_PAGE_WIDTH,
-            height=_DEFAULT_PAGE_HEIGHT,
-            margins=_DEFAULT_MARGINS,
+        page = (
+            schema.page
+            if schema.page
+            else PageLayout(
+                width=_DEFAULT_PAGE_WIDTH,
+                height=_DEFAULT_PAGE_HEIGHT,
+                margins=_DEFAULT_MARGINS,
+            )
         )
         margins = page.margins if page.margins else _DEFAULT_MARGINS
 
@@ -220,13 +226,9 @@ class SyntheticGenerator:
         periods = faker.generate_statement_period(params.start_date, params.months)
         opening = Decimal(params.opening_balance)
 
-        is_multi_month = (
-            params.scenario == Scenario.MULTI_MONTH or params.months > 1
-        )
+        is_multi_month = params.scenario == Scenario.MULTI_MONTH or params.months > 1
 
-        all_transactions = faker.generate_transactions(
-            params, schema.description_patterns
-        )
+        all_transactions = faker.generate_transactions(params, schema.description_patterns)
 
         if is_multi_month and len(periods) > 1:
             # Split transactions across months
@@ -241,9 +243,16 @@ class SyntheticGenerator:
                     c.showPage()
 
                 self._render_statement(
-                    c, schema, page, margins, faker,
-                    txns, summary, acct_number,
-                    period_start, period_end,
+                    c,
+                    schema,
+                    page,
+                    margins,
+                    faker,
+                    txns,
+                    summary,
+                    acct_number,
+                    period_start,
+                    period_end,
                     balance_carry,
                 )
 
@@ -256,9 +265,16 @@ class SyntheticGenerator:
             acct_number = faker.generate_account_number_masked()
 
             self._render_statement(
-                c, schema, page, margins, faker,
-                all_transactions, summary, acct_number,
-                period_start, period_end,
+                c,
+                schema,
+                page,
+                margins,
+                faker,
+                all_transactions,
+                summary,
+                acct_number,
+                period_start,
+                period_end,
                 opening,
             )
 
@@ -266,9 +282,7 @@ class SyntheticGenerator:
         buf.seek(0)
         return buf
 
-    def generate_preview(
-        self, schema: FormatSchema, params: GenerationParams
-    ) -> io.BytesIO:
+    def generate_preview(self, schema: FormatSchema, params: GenerationParams) -> io.BytesIO:
         """Generate a first-page preview.
 
         For V1 this returns a single-page PDF in BytesIO.
@@ -278,9 +292,7 @@ class SyntheticGenerator:
         preview_params = params.model_copy(
             update={
                 "months": 1,
-                "transactions_per_month": params.transactions_per_month.model_copy(
-                    update={"min": 5, "max": 15}
-                ),
+                "transactions_per_month": params.transactions_per_month.model_copy(update={"min": 5, "max": 15}),
             }
         )
         return self.generate(schema, preview_params)
@@ -309,10 +321,7 @@ class SyntheticGenerator:
                 pdf_bytes = self.generate(schema, params)
                 filename = f"{schema.bank_name}_{scenario.value}_{i + 1}.pdf"
                 # Sanitize filename
-                filename = "".join(
-                    ch if ch.isalnum() or ch in ("_", "-", ".") else "_"
-                    for ch in filename
-                )
+                filename = "".join(ch if ch.isalnum() or ch in ("_", "-", ".") else "_" for ch in filename)
                 zf.writestr(filename, pdf_bytes.read())
 
         zip_buf.seek(0)
@@ -344,7 +353,7 @@ class SyntheticGenerator:
         # Organize sections by type for ordered rendering
         sections_by_type: dict[SectionType, Section] = {}
         ordered_sections: list[Section] = []
-        for sec in (schema.sections or []):
+        for sec in schema.sections or []:
             sections_by_type[sec.type] = sec
             ordered_sections.append(sec)
 
@@ -360,16 +369,28 @@ class SyntheticGenerator:
         # Track current Y position (reportlab Y=0 is bottom)
         current_y = page_height - margins.top
         page_num = 1
-        total_pages_estimate = max(1, self._estimate_total_pages(
-            len(transactions), sections_by_type, page_height, margins,
-        ))
+        total_pages_estimate = max(
+            1,
+            self._estimate_total_pages(
+                len(transactions),
+                sections_by_type,
+                page_height,
+                margins,
+            ),
+        )
 
         # --- Render header ---
         header_sec = sections_by_type.get(SectionType.HEADER)
         current_y = self._render_header(
-            c, schema, header_sec, margins,
-            page_width, page_height,
-            period_start, period_end, current_y,
+            c,
+            schema,
+            header_sec,
+            margins,
+            page_width,
+            page_height,
+            period_start,
+            period_end,
+            current_y,
         )
 
         # --- Render account summary ---
@@ -379,12 +400,23 @@ class SyntheticGenerator:
         if schema.bank_name and schema.bank_name != "Detected Bank":
             summary_label = f"{schema.bank_name.split(',')[0]} {summary_label}"
         current_y = self._render_section_label(
-            c, margins, page_width, current_y, summary_label.upper(),
+            c,
+            margins,
+            page_width,
+            current_y,
+            summary_label.upper(),
         )
         current_y = self._render_account_summary(
-            c, summary_sec, margins, summary,
-            acct_number, current_y, date_fmt, amount_fmt,
-            period_start, period_end,
+            c,
+            summary_sec,
+            margins,
+            summary,
+            acct_number,
+            current_y,
+            date_fmt,
+            amount_fmt,
+            period_start,
+            period_end,
         )
 
         # --- Render transaction table ---
@@ -393,14 +425,17 @@ class SyntheticGenerator:
 
         # Section header bar for transactions
         current_y = self._render_section_label(
-            c, margins, page_width, current_y, "TRANSACTION DETAIL",
+            c,
+            margins,
+            page_width,
+            current_y,
+            "TRANSACTION DETAIL",
         )
 
         # Draw column headers
         current_y = self._render_table_headers(c, table_sec, margins, current_y)
 
-        row_height = (table_sec.row_height if table_sec and table_sec.row_height
-                      else _DEFAULT_ROW_HEIGHT)
+        row_height = table_sec.row_height if table_sec and table_sec.row_height else _DEFAULT_ROW_HEIGHT
         min_rows = page_break_rules.min_rows_before_break
         bottom_limit = margins.bottom + _FOOTER_HEIGHT
 
@@ -410,17 +445,25 @@ class SyntheticGenerator:
             # Description column (second column usually)
             desc_col = columns[1] if len(columns) > 1 else columns[0]
             _draw_text(
-                c, desc_col.x_start, current_y, "Beginning Balance",
+                c,
+                desc_col.x_start,
+                current_y,
+                "Beginning Balance",
                 font_spec=None,
-                font_name="Helvetica-Bold", font_size=8,
+                font_name="Helvetica-Bold",
+                font_size=8,
             )
             # Balance in rightmost column
             balance_col = columns[-1]
             opening_str = format_amount(summary["opening_balance"], amount_fmt)
             _draw_text(
-                c, balance_col.x_end, current_y, opening_str,
+                c,
+                balance_col.x_end,
+                current_y,
+                opening_str,
                 font_spec=None,
-                font_name="Helvetica-Bold", font_size=8,
+                font_name="Helvetica-Bold",
+                font_size=8,
                 alignment="right",
             )
             current_y -= row_height
@@ -431,8 +474,13 @@ class SyntheticGenerator:
             if rows_remaining_space < 1 or (rows_remaining_space < min_rows and idx < len(transactions) - 1):
                 # Draw footer on current page
                 self._render_footer(
-                    c, footer_sec, margins, page_width, page_height,
-                    page_num, total_pages_estimate,
+                    c,
+                    footer_sec,
+                    margins,
+                    page_width,
+                    page_height,
+                    page_num,
+                    total_pages_estimate,
                 )
                 # Start new page
                 c.showPage()
@@ -444,44 +492,65 @@ class SyntheticGenerator:
                     current_y = self._render_table_headers(c, table_sec, margins, current_y)
 
             # Draw alternating row background
-            if (table_sec and table_sec.alternate_row_fill
-                    and idx % 2 == 1):
+            if table_sec and table_sec.alternate_row_fill and idx % 2 == 1:
                 fill_color = _hex_to_color(table_sec.alternate_row_fill)
                 c.setFillColor(fill_color)
                 c.rect(
-                    margins.left, current_y - row_height + 2,
-                    page_width - margins.left - margins.right, row_height,
-                    stroke=0, fill=1,
+                    margins.left,
+                    current_y - row_height + 2,
+                    page_width - margins.left - margins.right,
+                    row_height,
+                    stroke=0,
+                    fill=1,
                 )
 
             # Draw transaction row
             current_y = self._render_transaction_row(
-                c, table_sec, margins, tx, current_y,
-                row_height, date_fmt, amount_fmt,
+                c,
+                table_sec,
+                margins,
+                tx,
+                current_y,
+                row_height,
+                date_fmt,
+                amount_fmt,
             )
 
         # --- Ending Balance row ---
         if columns and len(columns) >= 2:
             desc_col = columns[1] if len(columns) > 1 else columns[0]
             _draw_text(
-                c, desc_col.x_start, current_y, "Ending Balance",
+                c,
+                desc_col.x_start,
+                current_y,
+                "Ending Balance",
                 font_spec=None,
-                font_name="Helvetica-Bold", font_size=8,
+                font_name="Helvetica-Bold",
+                font_size=8,
             )
             balance_col = columns[-1]
             closing_str = format_amount(summary["closing_balance"], amount_fmt)
             _draw_text(
-                c, balance_col.x_end, current_y, closing_str,
+                c,
+                balance_col.x_end,
+                current_y,
+                closing_str,
                 font_spec=None,
-                font_name="Helvetica-Bold", font_size=8,
+                font_name="Helvetica-Bold",
+                font_size=8,
                 alignment="right",
             )
             current_y -= row_height
 
         # --- Render footer on last page ---
         self._render_footer(
-            c, footer_sec, margins, page_width, page_height,
-            page_num, total_pages_estimate,
+            c,
+            footer_sec,
+            margins,
+            page_width,
+            page_height,
+            page_num,
+            total_pages_estimate,
         )
 
     # ------------------------------------------------------------------
@@ -519,28 +588,36 @@ class SyntheticGenerator:
         bank_name_x = logo_x + logo_w + 16
         bank_name_y = y - 16
         _draw_text(
-            c, bank_name_x, bank_name_y, schema.bank_name,
+            c,
+            bank_name_x,
+            bank_name_y,
+            schema.bank_name,
             font_spec=header_font,
-            font_name="Helvetica-Bold", font_size=16,
+            font_name="Helvetica-Bold",
+            font_size=16,
         )
 
         # Statement period
-        period_text = (
-            f"Statement Period: "
-            f"{period_start.strftime('%B %d, %Y')} - "
-            f"{period_end.strftime('%B %d, %Y')}"
-        )
+        period_text = f"Statement Period: {period_start.strftime('%B %d, %Y')} - {period_end.strftime('%B %d, %Y')}"
         _draw_text(
-            c, bank_name_x, bank_name_y - 18, period_text,
+            c,
+            bank_name_x,
+            bank_name_y - 18,
+            period_text,
             font_spec=subheader_font,
-            font_name="Helvetica", font_size=10,
+            font_name="Helvetica",
+            font_size=10,
         )
 
         # Account type
         _draw_text(
-            c, bank_name_x, bank_name_y - 32,
+            c,
+            bank_name_x,
+            bank_name_y - 32,
             f"{schema.account_type.value.replace('_', ' ').title()} Account",
-            font_name="Helvetica", font_size=9, color="#555555",
+            font_name="Helvetica",
+            font_size=9,
+            color="#555555",
         )
 
         # Horizontal rule under header
@@ -603,6 +680,7 @@ class SyntheticGenerator:
 
         # Default fields — used when section has no fields or no fields match known roles
         from app.models.schema import SummaryField
+
         default_fields = [
             SummaryField(role="opening_balance", label="Beginning Balance", format="$#,##0.00"),
             SummaryField(role="total_deposits", label="Deposits and Additions", format="$#,##0.00"),
@@ -613,9 +691,15 @@ class SyntheticGenerator:
         fields = []
         if summary_sec and summary_sec.fields:
             # Check if any fields have roles that map to our value_map
-            known_roles = {"account_number_masked", "opening_balance", "closing_balance",
-                           "total_deposits", "total_withdrawals", "num_transactions",
-                           "statement_period"}
+            known_roles = {
+                "account_number_masked",
+                "opening_balance",
+                "closing_balance",
+                "total_deposits",
+                "total_withdrawals",
+                "num_transactions",
+                "statement_period",
+            }
             matched = [f for f in summary_sec.fields if f.role in known_roles]
             fields = matched if matched else default_fields
         else:
@@ -629,9 +713,7 @@ class SyntheticGenerator:
             "total_deposits": format_amount(summary["total_deposits"], amount_fmt),
             "total_withdrawals": format_amount(summary["total_withdrawals"], amount_fmt),
             "num_transactions": str(summary["num_transactions"]),
-            "statement_period": (
-                f"{period_start.strftime('%m/%d/%Y')} - {period_end.strftime('%m/%d/%Y')}"
-            ),
+            "statement_period": (f"{period_start.strftime('%m/%d/%Y')} - {period_end.strftime('%m/%d/%Y')}"),
         }
 
         label_x = margins.left
@@ -640,16 +722,24 @@ class SyntheticGenerator:
         for field in fields:
             # Label
             _draw_text(
-                c, label_x, y, field.label,
+                c,
+                label_x,
+                y,
+                field.label,
                 font_spec=body_font,
-                font_name="Helvetica-Bold", font_size=9,
+                font_name="Helvetica-Bold",
+                font_size=9,
             )
             # Value
             val = value_map.get(field.role, "—")
             _draw_text(
-                c, value_x, y, val,
+                c,
+                value_x,
+                y,
+                val,
                 font_spec=body_font,
-                font_name="Helvetica", font_size=9,
+                font_name="Helvetica",
+                font_size=9,
             )
             y -= line_height
 
@@ -669,9 +759,13 @@ class SyntheticGenerator:
 
         for col in columns:
             _draw_text(
-                c, col.x_start, y, col.header,
+                c,
+                col.x_start,
+                y,
+                col.header,
                 font_spec=th_font,
-                font_name="Helvetica-Bold", font_size=9,
+                font_name="Helvetica-Bold",
+                font_size=9,
                 alignment=col.alignment,
             )
 
@@ -681,8 +775,7 @@ class SyntheticGenerator:
             c.setLineWidth(0.5)
             underline_y = y - 4
             if columns:
-                c.line(columns[0].x_start, underline_y,
-                       columns[-1].x_end, underline_y)
+                c.line(columns[0].x_start, underline_y, columns[-1].x_end, underline_y)
 
         return y - 18
 
@@ -734,10 +827,13 @@ class SyntheticGenerator:
                 text_color = "#CC0000"
 
             _draw_text(
-                c, col.x_start if col.alignment != "right" else col.x_end,
-                y, display_val,
+                c,
+                col.x_start if col.alignment != "right" else col.x_end,
+                y,
+                display_val,
                 font_spec=tb_font,
-                font_name="Helvetica", font_size=8,
+                font_name="Helvetica",
+                font_size=8,
                 color=text_color,
                 alignment=col.alignment,
             )
@@ -768,21 +864,28 @@ class SyntheticGenerator:
 
         page_text = page_fmt.replace("{n}", str(page_num)).replace("{total}", str(total_pages))
         _draw_text(
-            c, page_width - margins.right, footer_y, page_text,
+            c,
+            page_width - margins.right,
+            footer_y,
+            page_text,
             font_spec=footer_font,
-            font_name="Helvetica", font_size=8, color="#888888",
+            font_name="Helvetica",
+            font_size=8,
+            color="#888888",
             alignment="right",
         )
 
         # Disclaimer
-        disclaimer = (
-            "This is a synthetic bank statement generated for testing purposes. "
-            "All data is fictitious."
-        )
+        disclaimer = "This is a synthetic bank statement generated for testing purposes. All data is fictitious."
         _draw_text(
-            c, margins.left, footer_y - 12, disclaimer,
+            c,
+            margins.left,
+            footer_y - 12,
+            disclaimer,
             font_spec=footer_font,
-            font_name="Helvetica", font_size=6, color="#AAAAAA",
+            font_name="Helvetica",
+            font_size=6,
+            color="#AAAAAA",
         )
 
     # ------------------------------------------------------------------
@@ -797,14 +900,12 @@ class SyntheticGenerator:
         # Default 4-column layout
         left = margins.left
         return [
-            TableColumn(header="Date", x_start=left, x_end=left + 70,
-                        format="date", alignment="left"),
-            TableColumn(header="Description", x_start=left + 80, x_end=left + 340,
-                        format="text", alignment="left", max_chars=50),
-            TableColumn(header="Amount", x_start=left + 350, x_end=left + 430,
-                        format="amount", alignment="right"),
-            TableColumn(header="Balance", x_start=left + 440, x_end=left + 510,
-                        format="amount", alignment="right"),
+            TableColumn(header="Date", x_start=left, x_end=left + 70, format="date", alignment="left"),
+            TableColumn(
+                header="Description", x_start=left + 80, x_end=left + 340, format="text", alignment="left", max_chars=50
+            ),
+            TableColumn(header="Amount", x_start=left + 350, x_end=left + 430, format="amount", alignment="right"),
+            TableColumn(header="Balance", x_start=left + 440, x_end=left + 510, format="amount", alignment="right"),
         ]
 
     def _map_tx_to_columns(
@@ -868,8 +969,7 @@ class SyntheticGenerator:
         usable_subsequent = page_height - margins.top - margins.bottom - _FOOTER_HEIGHT - 20
 
         table_sec = sections_by_type.get(SectionType.TRANSACTION_TABLE)
-        row_h = (table_sec.row_height if table_sec and table_sec.row_height
-                 else _DEFAULT_ROW_HEIGHT)
+        row_h = table_sec.row_height if table_sec and table_sec.row_height else _DEFAULT_ROW_HEIGHT
 
         if tx_count == 0:
             return 1

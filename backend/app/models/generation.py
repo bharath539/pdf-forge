@@ -52,11 +52,13 @@ class GenerationParams(BaseModel):
 
 class GenerationRequest(BaseModel):
     """Single PDF generation request."""
+
     params: GenerationParams
 
 
 class BatchGenerationRequest(BaseModel):
     """Batch generation: multiple scenarios from the same schema."""
+
     schema_id: UUID
     scenarios: list[Scenario]
     start_date: date = Field(default_factory=lambda: date(2025, 1, 1))
@@ -65,6 +67,7 @@ class BatchGenerationRequest(BaseModel):
 
 class PreviewRequest(BaseModel):
     """Generate a first-page preview as PNG."""
+
     params: GenerationParams
 
 

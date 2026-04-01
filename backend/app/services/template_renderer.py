@@ -69,6 +69,7 @@ def _hex_to_color(hex_str: str) -> Color:
 # Amount / date formatting
 # ---------------------------------------------------------------------------
 
+
 def _format_amount(amount: Decimal) -> str:
     """Format a decimal amount as $X,XXX.XX."""
     abs_val = abs(amount)
@@ -104,6 +105,7 @@ def _guess_date_format(placeholder_width: float | None, original_text: str = "")
 # ---------------------------------------------------------------------------
 # TemplateRenderer
 # ---------------------------------------------------------------------------
+
 
 class TemplateRenderer:
     """Renders a PDF from a template by replaying all elements with fake data."""
@@ -177,9 +179,7 @@ class TemplateRenderer:
         preview_params = params.model_copy(
             update={
                 "months": 1,
-                "transactions_per_month": params.transactions_per_month.model_copy(
-                    update={"min": 5, "max": 10}
-                ),
+                "transactions_per_month": params.transactions_per_month.model_copy(update={"min": 5, "max": 10}),
             }
         )
         return self.render(template, preview_params)
@@ -206,10 +206,7 @@ class TemplateRenderer:
                 )
                 pdf_bytes = self.render(template, params)
                 filename = f"{template.bank_name}_{scenario.value}_{i + 1}.pdf"
-                filename = "".join(
-                    ch if ch.isalnum() or ch in ("_", "-", ".") else "_"
-                    for ch in filename
-                )
+                filename = "".join(ch if ch.isalnum() or ch in ("_", "-", ".") else "_" for ch in filename)
                 zf.writestr(filename, pdf_bytes.read())
 
         zip_buf.seek(0)
@@ -251,6 +248,7 @@ class TemplateRenderer:
     def _target_transaction_count(self, params: GenerationParams) -> int:
         """Determine how many transactions to generate."""
         import random
+
         rng = random.Random(params.seed)
         base = rng.randint(
             params.transactions_per_month.min,
@@ -334,11 +332,9 @@ class TemplateRenderer:
                         new_te.text = "{date}"
                 elif te.data_type == DataType.REFERENCE:
                     import random as _rand
+
                     rng = _rand.Random(ref_count)
-                    new_te.text = "".join(
-                        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                        for _ in range(16)
-                    )
+                    new_te.text = "".join(rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(16))
                     ref_count += 1
 
             result.append(new_te)
@@ -354,9 +350,7 @@ class TemplateRenderer:
         # Template row to use for expanding (use elements from row 0 as pattern)
         template_row_0 = row_elements.get(original_rows[0], [])
         row_height = template.transaction_row_height or 12.0
-        base_y = template.transaction_area_start_y or (
-            template_row_0[0].y if template_row_0 else 200
-        )
+        base_y = template.transaction_area_start_y or (template_row_0[0].y if template_row_0 else 200)
 
         for new_row_idx in range(target_count):
             tx = transactions[new_row_idx] if new_row_idx < len(transactions) else transactions[-1]
@@ -395,15 +389,13 @@ class TemplateRenderer:
                         if te.width and te.font_size > 0:
                             approx_chars = int(te.width / (te.font_size * 0.5))
                             if len(desc) > approx_chars:
-                                desc = desc[:approx_chars - 3] + "..."
+                                desc = desc[: approx_chars - 3] + "..."
                         new_te.text = desc
                     elif te.data_type == DataType.REFERENCE:
                         import random as _rand
+
                         rng = _rand.Random(new_row_idx + 1000)
-                        new_te.text = "".join(
-                            rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                            for _ in range(16)
-                        )
+                        new_te.text = "".join(rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(16))
 
                 result.append(new_te)
 
@@ -459,7 +451,10 @@ class TemplateRenderer:
             c.setLineWidth(rect.stroke_width)
 
         c.rect(
-            rect.x0, rl_y, width, height,
+            rect.x0,
+            rl_y,
+            width,
+            height,
             stroke=1 if has_stroke else 0,
             fill=1 if has_fill else 0,
         )

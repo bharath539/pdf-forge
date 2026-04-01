@@ -40,6 +40,7 @@ async def async_client():
 # Minimal valid FormatSchema — usable by generator and sanitizer tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def minimal_schema() -> FormatSchema:
     """A minimal but complete FormatSchema for testing the generator."""
@@ -80,8 +81,12 @@ def minimal_schema() -> FormatSchema:
                 columns=[
                     TableColumn(header="Date", x_start=54, x_end=124, format="date", alignment="left"),
                     TableColumn(
-                        header="Description", x_start=134, x_end=394,
-                        format="text", alignment="left", max_chars=50,
+                        header="Description",
+                        x_start=134,
+                        x_end=394,
+                        format="text",
+                        alignment="left",
+                        max_chars=50,
                     ),
                     TableColumn(header="Amount", x_start=404, x_end=484, format="amount", alignment="right"),
                     TableColumn(header="Balance", x_start=494, x_end=558, format="amount", alignment="right"),
