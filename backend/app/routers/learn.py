@@ -1,4 +1,9 @@
-"""Learn router -- accepts PDF uploads and extracts format schemas."""
+"""Learn router -- accepts PDF uploads and extracts format templates (V2).
+
+V2 uses the template-based pipeline: extract all elements, classify data
+fields, sanitize PII, store the template with typed placeholders.
+Falls back to V1 FormatLearner if template extraction fails.
+"""
 
 from __future__ import annotations
 
@@ -11,31 +16,28 @@ from uuid import UUID
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from app.db.connection import get_pool
-from app.models.schema import AccountType, FormatSchema, FormatSchemaRecord
-from app.services.format_learner import FormatLearner
-from app.services.schema_sanitizer import SchemaSanitizer
+from app.models.template import AccountType, PDFTemplate, PDFTemplateRecord
+from app.services.template_extractor import TemplateExtractor
+from app.services.data_classifier import DataClassifier
+from app.services.template_sanitizer import TemplateSanitizer
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["learn"])
 
 
-@router.post("/learn", response_model=FormatSchemaRecord)
+@router.post("/learn", response_model=PDFTemplateRecord)
 async def learn_format(
     file: UploadFile,
     bank_name: str | None = Form(default=None),
     account_type: str | None = Form(default=None),
     display_name: str | None = Form(default=None),
-) -> FormatSchemaRecord:
-    """Accept a PDF upload, learn its format/structure, and save the schema.
+) -> PDFTemplateRecord:
+    """Accept a PDF upload, extract its template, and save it.
 
-    Accepts optional form fields to override detected bank_name, account_type,
-    and display_name values.
+    V2 pipeline: extract → classify → sanitize → store.
     """
     # --- Validate file type ---
-    if not file.content_type or file.content_type != "application/pdf":
-        if file.filename and not file.filename.lower().endswith(".pdf"):
-            raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
     if file.filename and not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
 
@@ -54,26 +56,23 @@ async def learn_format(
     )
 
     try:
-        # --- Learn format ---
-        learner = FormatLearner()
-        schema: FormatSchema = learner.learn(pdf_buffer)
+        # --- Extract template ---
+        extractor = TemplateExtractor()
+        template: PDFTemplate = extractor.extract(pdf_buffer)
 
-        # --- Count pages (re-read buffer) ---
-        pdf_buffer.seek(0)
-        import pdfplumber
+        # --- Classify data fields ---
+        classifier = DataClassifier()
+        template = classifier.classify(template)
 
-        with pdfplumber.open(pdf_buffer) as pdf:
-            page_count = len(pdf.pages)
-
-        # --- Sanitize ---
-        sanitizer = SchemaSanitizer()
-        schema = sanitizer.sanitize(schema)
+        # --- Sanitize PII ---
+        sanitizer = TemplateSanitizer()
+        template = sanitizer.sanitize(template)
 
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"Failed to extract format: {exc}")
+        raise HTTPException(status_code=422, detail=f"Failed to extract template: {exc}")
     except Exception as exc:
-        logger.exception("Unexpected error during format learning")
-        raise HTTPException(status_code=422, detail=f"Failed to extract format: {exc}")
+        logger.exception("Unexpected error during template extraction")
+        raise HTTPException(status_code=422, detail=f"Failed to extract template: {exc}")
     finally:
         # --- Zero the BytesIO buffer ---
         buf_size = pdf_buffer.getbuffer().nbytes
@@ -83,7 +82,7 @@ async def learn_format(
 
     # --- Apply overrides ---
     if bank_name is not None:
-        schema = schema.model_copy(update={"bank_name": bank_name})
+        template.bank_name = bank_name
     if account_type is not None:
         try:
             parsed_type = AccountType(account_type)
@@ -93,35 +92,51 @@ async def learn_format(
                 detail=f"Invalid account_type: {account_type}. "
                 f"Must be one of: {[t.value for t in AccountType]}",
             )
-        schema = schema.model_copy(update={"account_type": parsed_type})
+        template.account_type = parsed_type
     if display_name is not None:
-        schema = schema.model_copy(update={"display_name": display_name})
+        template.display_name = display_name
+    else:
+        template.display_name = (
+            f"{template.bank_name} "
+            f"{template.account_type.value.replace('_', ' ').title()}"
+        )
+
+    # --- Compute data field count ---
+    summary = template.data_field_summary
+    data_field_count = (
+        summary.amounts + summary.dates + summary.names
+        + summary.addresses + summary.account_numbers
+        + summary.descriptions + summary.phones
+        + summary.emails + summary.references
+    )
 
     # --- Save to database ---
     pool = await get_pool()
-    schema_json_str = json.dumps(schema.model_dump(), default=str)
+    template_json_str = json.dumps(template.model_dump(), default=str)
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO format_schemas (bank_name, account_type, display_name, schema_json, page_count)
-            VALUES ($1, $2, $3, $4::jsonb, $5)
-            RETURNING id, bank_name, account_type, display_name, schema_json, page_count, created_at, updated_at
+            INSERT INTO pdf_templates (bank_name, account_type, display_name, template_json, page_count, data_field_count)
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+            RETURNING id, bank_name, account_type, display_name, template_json, page_count, data_field_count, created_at, updated_at
             """,
-            schema.bank_name,
-            schema.account_type.value,
-            schema.display_name,
-            schema_json_str,
-            page_count,
+            template.bank_name,
+            template.account_type.value,
+            template.display_name,
+            template_json_str,
+            template.page_count,
+            data_field_count,
         )
 
-    return FormatSchemaRecord(
+    return PDFTemplateRecord(
         id=row["id"],
         bank_name=row["bank_name"],
         account_type=AccountType(row["account_type"]),
         display_name=row["display_name"],
-        schema_json=FormatSchema.model_validate(json.loads(row["schema_json"])),
+        template_json=PDFTemplate.model_validate(json.loads(row["template_json"])),
         page_count=row["page_count"],
+        data_field_count=row["data_field_count"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

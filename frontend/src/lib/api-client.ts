@@ -12,7 +12,10 @@ export interface FormatSchema {
   display_name: string;
   page_count: number;
   created_at: string;
+  version?: string;
+  data_field_count?: number;
   schema_json?: Record<string, unknown>;
+  template_json?: Record<string, unknown>;
 }
 
 export interface LearnResponse {
@@ -20,8 +23,10 @@ export interface LearnResponse {
   bank_name: string;
   account_type: string;
   display_name: string;
-  schema_json: Record<string, unknown>;
   page_count: number;
+  data_field_count?: number;
+  template_json?: Record<string, unknown>;
+  schema_json?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

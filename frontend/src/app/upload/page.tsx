@@ -304,7 +304,7 @@ export default function UploadPage() {
               Here&apos;s what we learned from your statement. Review the
               structure, then save it to your format library.
             </p>
-            <SchemaPreview schema={result.schema_json} />
+            <SchemaPreview schema={result.schema_json || result.template_json || {}} />
           </div>
 
           {/* Save Form */}
