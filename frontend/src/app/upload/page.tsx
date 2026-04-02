@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import UploadDropzone from "@/components/UploadDropzone";
 import SchemaPreview from "@/components/SchemaPreview";
-import { learn, type LearnResponse } from "@/lib/api-client";
+import { learn, getApiKey, type LearnResponse } from "@/lib/api-client";
 
 type PageState = "upload" | "processing" | "preview" | "saving" | "saved";
 
@@ -122,9 +122,13 @@ export default function UploadPage() {
     setError(null);
 
     try {
+      const apiKey = getApiKey();
       const res = await fetch(`${BASE_URL}/api/formats/${result.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { "X-API-Key": apiKey } : {}),
+        },
         body: JSON.stringify({
           bank_name: bankName,
           account_type: accountType,
