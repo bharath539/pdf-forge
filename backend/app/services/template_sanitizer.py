@@ -72,6 +72,8 @@ class TemplateSanitizer:
 
         for te in template.text_elements:
             if te.element_type == ElementCategory.DATA_PLACEHOLDER:
+                # Save original text for format detection during rendering
+                te.original_text = te.text
                 # Replace with typed placeholder
                 if te.data_type and te.data_type in _PLACEHOLDERS:
                     te.text = _PLACEHOLDERS[te.data_type]
@@ -84,6 +86,7 @@ class TemplateSanitizer:
                 # are structural and should be preserved.
                 pii_type = self._detect_personal_pii(te.text)
                 if pii_type is not None:
+                    te.original_text = te.text
                     te.element_type = ElementCategory.DATA_PLACEHOLDER
                     te.data_type = pii_type
                     te.text = _PLACEHOLDERS[pii_type]

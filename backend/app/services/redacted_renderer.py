@@ -268,10 +268,13 @@ class RedactedRenderer:
             elif te.data_type == DataType.EMAIL:
                 fake_text = fake_data["email"]
             elif te.data_type == DataType.AMOUNT:
-                fake_text = self._generate_matching_amount(te.text, summary, rng)
+                # Use original_text (before sanitization) to detect format pattern
+                orig = te.original_text or te.text
+                fake_text = self._generate_matching_amount(orig, summary, rng)
             elif te.data_type == DataType.DATE:
                 if transactions:
-                    orig_len = len(te.text.strip()) if te.text else 10
+                    orig = te.original_text or te.text
+                    orig_len = len(orig.strip())
                     if orig_len <= 5:
                         fake_text = format_date_mmdd(transactions[0].date)
                     elif orig_len <= 8:
@@ -351,7 +354,8 @@ class RedactedRenderer:
                 fake_text = ""
 
                 if te.data_type == DataType.DATE:
-                    orig_len = len(te.text.strip()) if te.text else 10
+                    orig = te.original_text or te.text
+                    orig_len = len(orig.strip())
                     if orig_len <= 5:
                         fake_text = format_date_mmdd(tx.date)
                     elif orig_len <= 8:
@@ -359,7 +363,18 @@ class RedactedRenderer:
                     else:
                         fake_text = format_date_mmddyyyy(tx.date)
                 elif te.data_type == DataType.AMOUNT:
-                    fake_text = format_amount(tx.amount)
+                    # Preserve original $ prefix
+                    orig = te.original_text or te.text
+                    has_dollar = "$" in orig
+                    prefix = ""
+                    if orig.strip().startswith("-"):
+                        prefix = "-"
+                    elif orig.strip().startswith("+"):
+                        prefix = "+"
+                    abs_formatted = f"{abs(tx.amount):,.2f}"
+                    if has_dollar:
+                        abs_formatted = f"${abs_formatted}"
+                    fake_text = f"{prefix}{abs_formatted}"
                 elif te.data_type == DataType.DESCRIPTION:
                     desc = tx.description
                     if te.width and te.font_size > 0:

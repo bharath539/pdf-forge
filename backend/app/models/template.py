@@ -70,6 +70,8 @@ class TextElement(BaseModel):
     row_index: Optional[int] = Field(default=None, description="Transaction row index (0-based)")
     # Width of the original text for fitting replacement values
     width: Optional[float] = Field(default=None, description="Width of original text in points")
+    # Original text before sanitization (for format detection during rendering)
+    original_text: Optional[str] = Field(default=None, description="Original text before sanitization")
 
 
 class LineElement(BaseModel):

@@ -20,13 +20,23 @@ EMBEDDED_ACCT_RE = re.compile(
 
 
 def hex_to_rgb(hex_str: str) -> tuple[float, float, float]:
-    """Convert hex color '#RRGGBB' to (r, g, b) floats 0-1."""
+    """Convert hex color '#RRGGBB' to (r, g, b) floats 0-1.
+
+    Light/bright colors (yellow, white, light gray) that would be invisible
+    on a white background are remapped to black. This handles cases where
+    pdfplumber extracts incorrect color values from complex PDF color spaces.
+    """
     if not hex_str or len(hex_str) < 7:
         return (0.0, 0.0, 0.0)
     try:
         r = int(hex_str[1:3], 16) / 255.0
         g = int(hex_str[3:5], 16) / 255.0
         b = int(hex_str[5:7], 16) / 255.0
+        # If the color is too light (luminance > 0.7), remap to black
+        # to avoid invisible text on white background
+        luminance = 0.299 * r + 0.587 * g + 0.114 * b
+        if luminance > 0.7:
+            return (0.0, 0.0, 0.0)
         return (r, g, b)
     except (ValueError, IndexError):
         return (0.0, 0.0, 0.0)
