@@ -191,6 +191,11 @@ class PDFTemplate(BaseModel):
     transaction_area_page: int = Field(default=0, description="Page index where transaction table starts")
     # V3: redacted rects for precise overlay positioning
     redacted_rects: list[RedactedRect] = Field(default_factory=list)
+    # V3: positions of redacted account number digits (for reinsertion during render)
+    acct_digit_rects: list[dict] = Field(
+        default_factory=list,
+        description="List of {page, x0, y0, x1, y1} for redacted account number digit positions",
+    )
 
 
 # ---------------------------------------------------------------------------

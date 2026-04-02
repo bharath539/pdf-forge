@@ -80,8 +80,9 @@ def run_pipeline(input_path: str, output_path: str) -> None:
     # Step 3: Redact (V3) — MUST run before sanitizer
     print("=== Step 3: Redacting PDF (V3) ===")
     redactor = PDFRedactor()
-    redacted_pdf_bytes, redacted_rects = redactor.redact(original_bytes, template)
+    redacted_pdf_bytes, redacted_rects, acct_digit_rects = redactor.redact(original_bytes, template)
     template.redacted_rects = redacted_rects
+    template.acct_digit_rects = acct_digit_rects
     print(f"  Redacted PDF size: {len(redacted_pdf_bytes)} bytes")
     print(f"  Redacted rects: {len(redacted_rects)}")
 

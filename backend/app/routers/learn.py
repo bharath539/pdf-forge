@@ -71,8 +71,9 @@ async def learn_format(
         # After sanitization, text gets replaced with "{amount}" etc.
         try:
             redactor = PDFRedactor()
-            redacted_pdf_bytes, redacted_rects = redactor.redact(content, template)
+            redacted_pdf_bytes, redacted_rects, acct_digit_rects = redactor.redact(content, template)
             template.redacted_rects = redacted_rects
+            template.acct_digit_rects = acct_digit_rects
             logger.info(
                 "V3 redaction: %d rects, %d bytes",
                 len(redacted_rects),

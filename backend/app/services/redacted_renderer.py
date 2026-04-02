@@ -115,29 +115,24 @@ class RedactedRenderer:
                 te.font_weight,
             )
 
-        # Also handle embedded account number replacements
+        # Insert fake account digits at pre-recorded positions
         fake_last4 = fake_data.get("account_last4", "7291")
-        from app.services.pdf_helpers import detect_account_digits
-
-        acct_digits = detect_account_digits(template)
-        for page_idx in range(len(doc)):
+        for adr in template.acct_digit_rects:
+            page_idx = adr.get("page", 0)
+            if page_idx >= len(doc):
+                continue
             page = doc[page_idx]
-            for digit_str in acct_digits:
-                for rect in page.search_for(digit_str):
-                    # These digits were redacted at learn time, but since we stored
-                    # the redacted PDF, they're already white. However, the redacted
-                    # PDF might have residual matches if search finds similar digits
-                    # in structural text. Only insert at exact match positions.
-                    fontsize = max(rect.height * 0.88, 5.0)
-                    baseline_y = rect.y0 + rect.height * 0.82
-                    insert_text(
-                        page,
-                        fitz.Point(rect.x0, baseline_y),
-                        fake_last4,
-                        fontsize,
-                        (0, 0, 0),
-                        "normal",
-                    )
+            rect_h = adr["y1"] - adr["y0"]
+            fontsize = max(rect_h * 0.88, 5.0)
+            baseline_y = adr["y0"] + rect_h * 0.82
+            insert_text(
+                page,
+                fitz.Point(adr["x0"], baseline_y),
+                fake_last4,
+                fontsize,
+                (0, 0, 0),
+                "normal",
+            )
 
         # Save to bytes
         buf = io.BytesIO()
