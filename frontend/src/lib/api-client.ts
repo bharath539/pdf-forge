@@ -2,6 +2,34 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+
+const API_KEY_STORAGE_KEY = "pdf_forge_api_key";
+
+export function getApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(API_KEY_STORAGE_KEY);
+}
+
+export function setApiKey(key: string): void {
+  localStorage.setItem(API_KEY_STORAGE_KEY, key);
+}
+
+export function clearApiKey(): void {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+export function isAuthenticated(): boolean {
+  return !!getApiKey();
+}
+
+function authHeaders(): Record<string, string> {
+  const key = getApiKey();
+  return key ? { "X-API-Key": key } : {};
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -65,6 +93,7 @@ async function request<T>(
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
       ...options.headers,
     },
   });
@@ -88,6 +117,7 @@ export async function learn(file: File): Promise<LearnResponse> {
 
   const res = await fetch(`${BASE_URL}/api/learn`, {
     method: "POST",
+    headers: { ...authHeaders() },
     body: formData,
   });
 
@@ -118,7 +148,7 @@ export async function deleteFormat(id: string): Promise<void> {
 export async function generate(params: GenerateParams): Promise<Blob> {
   const res = await fetch(`${BASE_URL}/api/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -132,7 +162,7 @@ export async function generate(params: GenerateParams): Promise<Blob> {
 export async function generatePreview(params: GenerateParams): Promise<Blob> {
   const res = await fetch(`${BASE_URL}/api/generate/preview`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -151,7 +181,7 @@ export async function generateBatch(params: {
 }): Promise<Blob> {
   const res = await fetch(`${BASE_URL}/api/generate/batch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
   if (!res.ok) {

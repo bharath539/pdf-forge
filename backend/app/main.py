@@ -1,11 +1,35 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.db.connection import close_pool, run_migrations
 from app.routers import formats, generate, health, learn
+
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    """Validates X-API-Key header on all requests except health and CORS preflight."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for health endpoint and CORS preflight
+        if request.url.path == "/api/health" or request.method == "OPTIONS":
+            return await call_next(request)
+
+        # Skip auth if no APP_SECRET is configured (local dev)
+        if not settings.APP_SECRET:
+            return await call_next(request)
+
+        api_key = request.headers.get("X-API-Key", "")
+        if api_key != settings.APP_SECRET:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key"},
+            )
+
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -31,6 +55,7 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
+app.add_middleware(APIKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

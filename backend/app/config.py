@@ -11,6 +11,7 @@ class Settings(BaseSettings):
         "https://pdf-forge-app.vercel.app",
     ]
     DEBUG: bool = True
+    APP_SECRET: str = ""  # Shared password for API access. Set via env var.
 
     model_config = {
         "env_file": ".env",
