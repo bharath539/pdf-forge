@@ -343,7 +343,6 @@ class TemplateExtractor:
                     )
 
                 # --- Extract images (bounding boxes only) ---
-                page_h = float(page.height)
                 for img in page.images or []:
                     x0 = round(float(img["x0"]), 2)
                     y0 = round(float(img["top"]), 2)

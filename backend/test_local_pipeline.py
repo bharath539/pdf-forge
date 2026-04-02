@@ -97,7 +97,7 @@ def run_pipeline(input_path: str, output_path: str) -> None:
     print("=== Step 4: Sanitizing template metadata ===")
     sanitizer = TemplateSanitizer()
     template = sanitizer.sanitize(template)
-    print(f"  Done — data element text replaced with placeholders")
+    print("  Done -- data element text replaced with placeholders")
     print()
 
     # Step 5: Render from redacted PDF

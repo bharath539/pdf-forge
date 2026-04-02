@@ -448,13 +448,13 @@ class TransactionFaker:
             # Pad merchant to ~20 chars, location fills the rest
             return f"{merchant:<20s}{location}"
         if tx_type == "ach" and is_credit:
-            return f"PAYMENT THANK YOU"
+            return "PAYMENT THANK YOU"
         if tx_type == "transfer":
             if is_credit:
-                return f"PAYMENT THANK YOU"
-            return f"CASH ADVANCE FEE"
+                return "PAYMENT THANK YOU"
+            return "CASH ADVANCE FEE"
         if tx_type == "check":
-            return f"PAYMENT THANK YOU"
+            return "PAYMENT THANK YOU"
         if tx_type == "atm":
             return f"CASH ADVANCE {placeholders['city'].upper()} {placeholders['state']}"
         return f"{placeholders['merchant'].upper():<20s}{placeholders['city'].upper()} {placeholders['state']}"

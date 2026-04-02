@@ -30,7 +30,6 @@ from app.models.template import (
 )
 from app.services.data_faker import Transaction, TransactionFaker
 from app.services.pdf_helpers import (
-    format_amount,
     format_date_mmdd,
     format_date_mmddyy,
     format_date_mmddyyyy,

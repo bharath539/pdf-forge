@@ -367,7 +367,6 @@ class OverlayRenderer:
     ) -> list[tuple[TextElement, str]]:
         """Generate fake values for non-transaction-row data elements."""
         transactions = fake_data["transactions"]
-        summary = fake_data["summary"]
         rng = random.Random(params.seed if params.seed else 42)
 
         address_count = 0
