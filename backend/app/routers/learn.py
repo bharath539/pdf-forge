@@ -17,6 +17,7 @@ from fastapi import APIRouter, Form, HTTPException, UploadFile
 from app.db.connection import get_pool
 from app.models.template import AccountType, PDFTemplate, PDFTemplateRecord
 from app.services.data_classifier import DataClassifier
+from app.services.pdf_redactor import PDFRedactor
 from app.services.template_extractor import TemplateExtractor
 from app.services.template_sanitizer import TemplateSanitizer
 
@@ -54,6 +55,8 @@ async def learn_format(
         len(content),
     )
 
+    redacted_pdf_bytes: bytes | None = None
+
     try:
         # --- Extract template ---
         extractor = TemplateExtractor()
@@ -63,7 +66,23 @@ async def learn_format(
         classifier = DataClassifier()
         template = classifier.classify(template)
 
-        # --- Sanitize PII ---
+        # --- Redact original PDF (V3) — MUST run before sanitizer ---
+        # The redactor needs the original text to search for it in the PDF.
+        # After sanitization, text gets replaced with "{amount}" etc.
+        try:
+            redactor = PDFRedactor()
+            redacted_pdf_bytes, redacted_rects = redactor.redact(content, template)
+            template.redacted_rects = redacted_rects
+            logger.info(
+                "V3 redaction: %d rects, %d bytes",
+                len(redacted_rects),
+                len(redacted_pdf_bytes),
+            )
+        except Exception as e:
+            logger.warning("V3 redaction failed, falling back to V2: %s", e)
+            redacted_pdf_bytes = None
+
+        # --- Sanitize PII (replaces data text with placeholders) ---
         sanitizer = TemplateSanitizer()
         template = sanitizer.sanitize(template)
 
@@ -110,6 +129,9 @@ async def learn_format(
         + summary.references
     )
 
+    # --- Determine template version ---
+    template_version = "v3" if redacted_pdf_bytes else "v2"
+
     # --- Save to database ---
     pool = await get_pool()
     template_json_str = json.dumps(template.model_dump(), default=str)
@@ -119,11 +141,12 @@ async def learn_format(
             """
             INSERT INTO pdf_templates
                 (bank_name, account_type, display_name,
-                 template_json, page_count, data_field_count)
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+                 template_json, page_count, data_field_count,
+                 redacted_pdf, template_version)
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
             RETURNING id, bank_name, account_type, display_name,
                       template_json, page_count, data_field_count,
-                      created_at, updated_at
+                      template_version, created_at, updated_at
             """,
             template.bank_name,
             template.account_type.value,
@@ -131,6 +154,8 @@ async def learn_format(
             template_json_str,
             template.page_count,
             data_field_count,
+            redacted_pdf_bytes,
+            template_version,
         )
 
     return PDFTemplateRecord(
@@ -141,6 +166,7 @@ async def learn_format(
         template_json=PDFTemplate.model_validate(json.loads(row["template_json"])),
         page_count=row["page_count"],
         data_field_count=row["data_field_count"],
+        template_version=row["template_version"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

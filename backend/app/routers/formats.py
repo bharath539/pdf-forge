@@ -37,10 +37,11 @@ async def list_formats() -> list[FormatListItem]:
     results: list[FormatListItem] = []
 
     async with pool.acquire() as conn:
-        # V2 templates
+        # V2/V3 templates
         v2_rows = await conn.fetch(
             """
-            SELECT id, bank_name, account_type, display_name, page_count, created_at
+            SELECT id, bank_name, account_type, display_name, page_count,
+                   created_at, template_version
             FROM pdf_templates
             ORDER BY created_at DESC
             """
@@ -54,7 +55,7 @@ async def list_formats() -> list[FormatListItem]:
                     display_name=row["display_name"],
                     page_count=row["page_count"],
                     created_at=str(row["created_at"]),
-                    version="v2",
+                    version=row.get("template_version", "v2"),
                 )
             )
 

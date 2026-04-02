@@ -26,24 +26,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["generate"])
 
 
-async def _fetch_template(template_id: UUID) -> tuple[PDFTemplate, str, str]:
+async def _fetch_template(
+    template_id: UUID,
+) -> tuple[PDFTemplate, str, str, bytes | None, str]:
     """Fetch a PDFTemplate from the database by ID.
 
-    Looks in pdf_templates first (V2), falls back to format_schemas (V1).
-    Returns (template, bank_name, account_type_value).
+    Looks in pdf_templates first (V2/V3), falls back to format_schemas (V1).
+    Returns (template, bank_name, account_type_value, redacted_pdf_bytes, template_version).
     """
     pool = await get_pool()
 
-    # Try V2 templates first
+    # Try V2/V3 templates first
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT template_json, bank_name, account_type FROM pdf_templates WHERE id = $1",
+            """SELECT template_json, bank_name, account_type,
+                      redacted_pdf, template_version
+               FROM pdf_templates WHERE id = $1""",
             template_id,
         )
 
     if row is not None:
         template = PDFTemplate.model_validate(json.loads(row["template_json"]))
-        return template, row["bank_name"], row["account_type"]
+        return (
+            template,
+            row["bank_name"],
+            row["account_type"],
+            row.get("redacted_pdf"),
+            row.get("template_version", "v2"),
+        )
 
     # Fall back to V1 format_schemas
     async with pool.acquire() as conn:
@@ -109,7 +119,7 @@ def _sanitize_filename(name: str) -> str:
 async def generate_pdf(params: GenerationParams) -> StreamingResponse:
     """Generate a single synthetic PDF."""
     try:
-        template, bank_name, account_type = await _fetch_template(params.schema_id)
+        template, bank_name, account_type, redacted_pdf, tmpl_version = await _fetch_template(params.schema_id)
     except _V1Fallback as v1:
         # V1 fallback
         from app.services.synthetic_generator import SyntheticGenerator
@@ -129,8 +139,16 @@ async def generate_pdf(params: GenerationParams) -> StreamingResponse:
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    renderer = TemplateRenderer()
-    pdf_buffer: BytesIO = renderer.render(template, params)
+    # V3: use redacted PDF renderer if available
+    if tmpl_version == "v3" and redacted_pdf:
+        from app.services.redacted_renderer import RedactedRenderer
+
+        renderer_v3 = RedactedRenderer()
+        pdf_buffer: BytesIO = renderer_v3.render(redacted_pdf, template, params)
+    else:
+        # V2 fallback: reportlab-based renderer
+        renderer = TemplateRenderer()
+        pdf_buffer: BytesIO = renderer.render(template, params)
 
     await _log_generation(
         schema_id=params.schema_id,
@@ -151,7 +169,7 @@ async def generate_pdf(params: GenerationParams) -> StreamingResponse:
 async def generate_preview(params: GenerationParams) -> StreamingResponse:
     """Generate a first-page preview PDF."""
     try:
-        template, bank_name, account_type = await _fetch_template(params.schema_id)
+        template, bank_name, account_type, redacted_pdf, tmpl_version = await _fetch_template(params.schema_id)
     except _V1Fallback as v1:
         from app.services.synthetic_generator import SyntheticGenerator
 
@@ -170,8 +188,14 @@ async def generate_preview(params: GenerationParams) -> StreamingResponse:
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    renderer = TemplateRenderer()
-    pdf_buffer: BytesIO = renderer.render_preview(template, params)
+    if tmpl_version == "v3" and redacted_pdf:
+        from app.services.redacted_renderer import RedactedRenderer
+
+        renderer_v3 = RedactedRenderer()
+        pdf_buffer: BytesIO = renderer_v3.render_preview(redacted_pdf, template, params)
+    else:
+        renderer = TemplateRenderer()
+        pdf_buffer: BytesIO = renderer.render_preview(template, params)
 
     await _log_generation(
         schema_id=params.schema_id,
@@ -192,7 +216,7 @@ async def generate_preview(params: GenerationParams) -> StreamingResponse:
 async def generate_batch(body: BatchGenerationRequest) -> StreamingResponse:
     """Generate multiple scenario PDFs as a zip archive."""
     try:
-        template, bank_name, account_type = await _fetch_template(body.schema_id)
+        template, bank_name, account_type, redacted_pdf, tmpl_version = await _fetch_template(body.schema_id)
     except _V1Fallback as v1:
         from app.services.synthetic_generator import SyntheticGenerator
 
@@ -217,13 +241,25 @@ async def generate_batch(body: BatchGenerationRequest) -> StreamingResponse:
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    renderer = TemplateRenderer()
-    zip_buffer: BytesIO = renderer.render_batch(
-        template=template,
-        scenarios=body.scenarios,
-        start_date=body.start_date,
-        seed=body.seed,
-    )
+    if tmpl_version == "v3" and redacted_pdf:
+        from app.services.redacted_renderer import RedactedRenderer
+
+        renderer_v3 = RedactedRenderer()
+        zip_buffer: BytesIO = renderer_v3.render_batch(
+            redacted_pdf_bytes=redacted_pdf,
+            template=template,
+            scenarios=body.scenarios,
+            start_date=body.start_date,
+            seed=body.seed,
+        )
+    else:
+        renderer = TemplateRenderer()
+        zip_buffer: BytesIO = renderer.render_batch(
+            template=template,
+            scenarios=body.scenarios,
+            start_date=body.start_date,
+            seed=body.seed,
+        )
 
     await _log_generation(
         schema_id=body.schema_id,

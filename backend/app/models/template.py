@@ -141,6 +141,22 @@ class DataFieldSummary(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Redacted rect — exact bbox found during PDF redaction (V3)
+# ---------------------------------------------------------------------------
+
+
+class RedactedRect(BaseModel):
+    """Exact bounding box of a data field found by PyMuPDF search_for() during redaction."""
+
+    page: int = Field(description="0-indexed page number")
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    element_index: int = Field(description="Index into text_elements list")
+
+
+# ---------------------------------------------------------------------------
 # Full PDF template
 # ---------------------------------------------------------------------------
 
@@ -171,6 +187,8 @@ class PDFTemplate(BaseModel):
         default=None, description="Y position where transaction rows begin (page 0)"
     )
     transaction_area_page: int = Field(default=0, description="Page index where transaction table starts")
+    # V3: redacted rects for precise overlay positioning
+    redacted_rects: list[RedactedRect] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +206,7 @@ class PDFTemplateRecord(BaseModel):
     template_json: PDFTemplate
     page_count: int
     data_field_count: int
+    template_version: str = "v2"
     created_at: datetime
     updated_at: datetime
 
