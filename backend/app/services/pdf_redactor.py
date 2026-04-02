@@ -28,9 +28,7 @@ logger = logging.getLogger(__name__)
 class PDFRedactor:
     """Creates a redacted copy of a PDF with all data fields whited out."""
 
-    def redact(
-        self, pdf_bytes: bytes, template: PDFTemplate
-    ) -> tuple[bytes, list[RedactedRect], list[dict]]:
+    def redact(self, pdf_bytes: bytes, template: PDFTemplate) -> tuple[bytes, list[RedactedRect], list[dict]]:
         """White out all data fields in the PDF.
 
         Args:
@@ -64,9 +62,7 @@ class PDFRedactor:
 
                 # Skip already-sanitized placeholders (shouldn't happen if called before sanitizer)
                 if original_text.startswith("{") and original_text.endswith("}"):
-                    logger.warning(
-                        "Element %d appears already sanitized: '%s'", elem_idx, original_text
-                    )
+                    logger.warning("Element %d appears already sanitized: '%s'", elem_idx, original_text)
                     continue
 
                 # Search for the original text in the PDF
@@ -121,9 +117,7 @@ class PDFRedactor:
             # Redact embedded account number digits and record positions
             for digit_str in acct_digits:
                 for rect in page.search_for(digit_str):
-                    expanded = fitz.Rect(
-                        rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1
-                    )
+                    expanded = fitz.Rect(rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1)
                     page.add_redact_annot(expanded, fill=(1, 1, 1))
                     acct_digit_rects.append(
                         {"page": page_idx, "x0": rect.x0, "y0": rect.y0, "x1": rect.x1, "y1": rect.y1}

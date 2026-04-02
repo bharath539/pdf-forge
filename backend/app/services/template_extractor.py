@@ -267,9 +267,7 @@ class TemplateExtractor:
                 # --- Extract text elements (grouped into words) ---
                 chars = page.chars or []
                 # Filter out truly invisible characters: both size AND width must be tiny
-                visible_chars = [
-                    c for c in chars if _effective_font_size(c) >= _MIN_FONT_SIZE
-                ]
+                visible_chars = [c for c in chars if _effective_font_size(c) >= _MIN_FONT_SIZE]
 
                 line_groups = _cluster_lines(visible_chars)
                 for y_pos, line_chars in sorted(line_groups.items()):
@@ -283,14 +281,13 @@ class TemplateExtractor:
                         is_micro = font_size < _MIN_FONT_SIZE
                         if is_micro:
                             avg_char_w = (w["x1"] - w["x0"]) / max(len(text), 1)
-                            font_size = _effective_font_size(
-                                {"size": font_size, "width": avg_char_w}
-                            )
+                            font_size = _effective_font_size({"size": font_size, "width": avg_char_w})
                             # Skip garbled micro-text: micro-encoded legal boilerplate
                             # has CamelCase concatenated words (e.g.
                             # "InformationAboutYourAccount") or long runs without
                             # spaces.  Keep real words, amounts, and dates.
                             import re
+
                             if " " not in text and len(text) > 3:
                                 # Detect CamelCase concatenation: lowercase→uppercase
                                 has_camel = bool(re.search(r"[a-z][A-Z]", text))

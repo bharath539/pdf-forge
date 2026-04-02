@@ -104,10 +104,7 @@ class OverlayRenderer:
         fake_acct_last4 = fake_data.get("account_last4", "7291")
 
         # Separate elements by type
-        data_elements = [
-            te for te in template.text_elements
-            if te.element_type == ElementCategory.DATA_PLACEHOLDER
-        ]
+        data_elements = [te for te in template.text_elements if te.element_type == ElementCategory.DATA_PLACEHOLDER]
 
         row_elements: dict[int, list[TextElement]] = {}
         non_row_elements: list[TextElement] = []
@@ -121,9 +118,7 @@ class OverlayRenderer:
         # Generate fake values
         non_row_fakes = self._generate_non_row_values(non_row_elements, fake_data, params)
         transactions = fake_data["transactions"]
-        row_fakes = self._generate_row_values(
-            row_elements, transactions, target_tx_count, template, params
-        )
+        row_fakes = self._generate_row_values(row_elements, transactions, target_tx_count, template, params)
 
         # Apply overlays page by page
         for page_idx in range(len(doc)):
@@ -184,7 +179,8 @@ class OverlayRenderer:
         fontname = "hebo" if weight == "bold" else "helv"
         try:
             page.insert_text(
-                point, text,
+                point,
+                text,
                 fontname=fontname,
                 fontsize=fontsize,
                 color=color,
@@ -192,7 +188,8 @@ class OverlayRenderer:
         except Exception as e:
             logger.warning("Text insert error for '%s': %s", text, e)
             page.insert_text(
-                point, text,
+                point,
+                text,
                 fontname="helv",
                 fontsize=fontsize,
                 color=color,
@@ -233,8 +230,10 @@ class OverlayRenderer:
                 text_height = te.font_size
                 text_width = te.width if te.width else text_height * len(fake_text) * 0.6
                 rect = fitz.Rect(
-                    te.x - 1, te.y - 1,
-                    te.x + text_width + 1, te.y + text_height + 1,
+                    te.x - 1,
+                    te.y - 1,
+                    te.x + text_width + 1,
+                    te.y + text_height + 1,
                 )
                 page.add_redact_annot(rect, fill=(1, 1, 1))
                 matched.append((rect, fake_text, _hex_to_rgb(te.color), te.font_weight))
@@ -246,8 +245,10 @@ class OverlayRenderer:
                 best_rect = self._closest_rect(rects, te.x, te.y)
                 # Add small margin for redaction
                 redact_rect = fitz.Rect(
-                    best_rect.x0 - 1, best_rect.y0 - 1,
-                    best_rect.x1 + 1, best_rect.y1 + 1,
+                    best_rect.x0 - 1,
+                    best_rect.y0 - 1,
+                    best_rect.x1 + 1,
+                    best_rect.y1 + 1,
                 )
                 page.add_redact_annot(redact_rect, fill=(1, 1, 1))
                 matched.append((best_rect, fake_text, _hex_to_rgb(te.color), te.font_weight))
@@ -256,8 +257,10 @@ class OverlayRenderer:
                 text_height = te.font_size
                 text_width = te.width if te.width else text_height * len(search_text) * 0.6
                 rect = fitz.Rect(
-                    te.x - 1, te.y - 1,
-                    te.x + text_width + 1, te.y + text_height + 1,
+                    te.x - 1,
+                    te.y - 1,
+                    te.x + text_width + 1,
+                    te.y + text_height + 1,
                 )
                 page.add_redact_annot(rect, fill=(1, 1, 1))
                 matched.append((rect, fake_text, _hex_to_rgb(te.color), te.font_weight))
@@ -268,8 +271,10 @@ class OverlayRenderer:
             rects = page.search_for(digit_str)
             for rect in rects:
                 expanded = fitz.Rect(
-                    rect.x0 - 1, rect.y0 - 1,
-                    rect.x1 + 1, rect.y1 + 1,
+                    rect.x0 - 1,
+                    rect.y0 - 1,
+                    rect.x1 + 1,
+                    rect.y1 + 1,
                 )
                 page.add_redact_annot(expanded, fill=(1, 1, 1))
                 acct_matched.append((rect, fake_acct_last4))
@@ -286,8 +291,12 @@ class OverlayRenderer:
             baseline_y = rect.y0 + rect.height * 0.82
 
             self._insert_text(
-                page, fitz.Point(rect.x0, baseline_y),
-                fake_text, fontsize, color, weight,
+                page,
+                fitz.Point(rect.x0, baseline_y),
+                fake_text,
+                fontsize,
+                color,
+                weight,
             )
 
         for rect, fake_digits in acct_matched:
@@ -295,8 +304,12 @@ class OverlayRenderer:
             baseline_y = rect.y0 + rect.height * 0.82
 
             self._insert_text(
-                page, fitz.Point(rect.x0, baseline_y),
-                fake_digits, fontsize, (0, 0, 0), "normal",
+                page,
+                fitz.Point(rect.x0, baseline_y),
+                fake_digits,
+                fontsize,
+                (0, 0, 0),
+                "normal",
             )
 
     def _closest_rect(self, rects: list[fitz.Rect], x: float, y: float) -> fitz.Rect:
@@ -421,8 +434,7 @@ class OverlayRenderer:
                 fake_text = "Payment received"
             elif te.data_type == DataType.REFERENCE:
                 fake_text = "".join(
-                    rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                    for _ in range(min(len(te.text), 16))
+                    rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(min(len(te.text), 16))
                 )
 
             results.append((te, fake_text))
@@ -471,12 +483,11 @@ class OverlayRenderer:
                     if te.width and te.font_size > 0:
                         approx_chars = int(te.width / (te.font_size * 0.5))
                         if len(desc) > approx_chars:
-                            desc = desc[:approx_chars - 3] + "..."
+                            desc = desc[: approx_chars - 3] + "..."
                     fake_text = desc
                 elif te.data_type == DataType.REFERENCE:
                     fake_text = "".join(
-                        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                        for _ in range(min(len(te.text), 16))
+                        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(min(len(te.text), 16))
                     )
 
                 results.append((te, fake_text))

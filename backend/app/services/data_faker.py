@@ -441,7 +441,7 @@ class TransactionFaker:
                 merchant = f"{merchant} #{store_num}"
             # Some show phone numbers instead of city
             if self._rng.random() < 0.2:
-                phone = f"{self._rng.randint(100,999)}-{self._rng.randint(1000000,9999999)}"
+                phone = f"{self._rng.randint(100, 999)}-{self._rng.randint(1000000, 9999999)}"
                 location = f"{phone} {state}"
             else:
                 location = f"{city} {state}"

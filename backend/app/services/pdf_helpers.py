@@ -14,9 +14,7 @@ from app.models.template import PDFTemplate
 logger = logging.getLogger(__name__)
 
 # Patterns to find account numbers embedded in structural text
-EMBEDDED_ACCT_RE = re.compile(
-    r"(?:ending\s+in[:\s]*|card\s+#?\s*)(\d{4})\b", re.IGNORECASE
-)
+EMBEDDED_ACCT_RE = re.compile(r"(?:ending\s+in[:\s]*|card\s+#?\s*)(\d{4})\b", re.IGNORECASE)
 
 
 def hex_to_rgb(hex_str: str) -> tuple[float, float, float]:

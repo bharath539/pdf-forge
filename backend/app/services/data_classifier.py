@@ -331,8 +331,7 @@ class DataClassifier:
         The bank's return address (right side) is structural and kept as-is.
         """
         page0_texts = [
-            te for te in template.text_elements
-            if te.page == 0 and te.element_type == ElementCategory.STRUCTURAL
+            te for te in template.text_elements if te.page == 0 and te.element_type == ElementCategory.STRUCTURAL
         ]
         if not page0_texts:
             return
@@ -393,6 +392,7 @@ class DataClassifier:
         """
         # Find candidate name elements: ALL CAPS, 2-3 words, each 2+ chars
         from collections import Counter
+
         name_counter: Counter[str] = Counter()
         name_elements: dict[str, list[TextElement]] = {}
 

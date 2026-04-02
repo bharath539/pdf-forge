@@ -58,9 +58,7 @@ class RedactedRenderer:
         doc = fitz.open(stream=redacted_pdf_bytes, filetype="pdf")
 
         # Build rect lookup: element_index -> RedactedRect
-        rect_lookup: dict[int, RedactedRect] = {
-            rr.element_index: rr for rr in template.redacted_rects
-        }
+        rect_lookup: dict[int, RedactedRect] = {rr.element_index: rr for rr in template.redacted_rects}
 
         # Separate data elements into row vs non-row
         data_elements = [
@@ -79,12 +77,8 @@ class RedactedRenderer:
                 non_row_elements.append((idx, te))
 
         # Generate fake values
-        non_row_fakes = self._generate_non_row_values(
-            non_row_elements, fake_data, params
-        )
-        row_fakes = self._generate_row_values(
-            row_elements, fake_data["transactions"], target_tx_count, params
-        )
+        non_row_fakes = self._generate_non_row_values(non_row_elements, fake_data, params)
+        row_fakes = self._generate_row_values(row_elements, fake_data["transactions"], target_tx_count, params)
 
         # Insert fake text at pre-recorded positions
         all_replacements = non_row_fakes + row_fakes
@@ -279,17 +273,14 @@ class RedactedRenderer:
                 fake_text = "Payment received"
             elif te.data_type == DataType.REFERENCE:
                 fake_text = "".join(
-                    rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                    for _ in range(min(len(te.text), 16))
+                    rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(min(len(te.text), 16))
                 )
 
             results.append((elem_idx, fake_text))
 
         return results
 
-    def _generate_matching_amount(
-        self, original_text: str, summary: dict[str, Any], rng: random.Random
-    ) -> str:
+    def _generate_matching_amount(self, original_text: str, summary: dict[str, Any], rng: random.Random) -> str:
         """Generate a fake amount that preserves the original text's format/prefix.
 
         Matches the prefix pattern (+$, -$, minus$, $) and generates a
@@ -378,8 +369,7 @@ class RedactedRenderer:
                     fake_text = desc
                 elif te.data_type == DataType.REFERENCE:
                     fake_text = "".join(
-                        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                        for _ in range(min(len(te.text), 16))
+                        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(min(len(te.text), 16))
                     )
 
                 results.append((elem_idx, fake_text))
