@@ -247,13 +247,6 @@ class RedactedRenderer:
         summary = fake_data["summary"]
         rng = random.Random(params.seed if params.seed else 42)
 
-        summary_amounts = [
-            format_amount(summary["opening_balance"]),
-            format_amount(summary["total_deposits"]),
-            format_amount(summary["total_withdrawals"]),
-            format_amount(summary["closing_balance"]),
-        ]
-        summary_idx = 0
         address_count = 0
         results: list[tuple[int, str]] = []
 
@@ -275,12 +268,7 @@ class RedactedRenderer:
             elif te.data_type == DataType.EMAIL:
                 fake_text = fake_data["email"]
             elif te.data_type == DataType.AMOUNT:
-                if summary_idx < len(summary_amounts):
-                    fake_text = summary_amounts[summary_idx]
-                    summary_idx += 1
-                else:
-                    amt = Decimal(str(round(rng.uniform(50, 5000), 2)))
-                    fake_text = format_amount(amt)
+                fake_text = self._generate_matching_amount(te.text, summary, rng)
             elif te.data_type == DataType.DATE:
                 if transactions:
                     orig_len = len(te.text.strip()) if te.text else 10
@@ -301,6 +289,39 @@ class RedactedRenderer:
             results.append((elem_idx, fake_text))
 
         return results
+
+    def _generate_matching_amount(
+        self, original_text: str, summary: dict[str, Any], rng: random.Random
+    ) -> str:
+        """Generate a fake amount that preserves the original text's format/prefix.
+
+        Matches the prefix pattern (+$, -$, minus$, $) and generates a
+        contextually appropriate amount.
+        """
+        text = original_text.strip()
+
+        # Detect prefix pattern
+        prefix = ""
+        if text.startswith("minus"):
+            prefix = "minus"
+            text = text[5:]
+        elif text.startswith("-"):
+            prefix = "-"
+            text = text[1:]
+        elif text.startswith("+"):
+            prefix = "+"
+            text = text[1:]
+
+        has_dollar = "$" in text
+
+        # Generate a random amount in a reasonable range
+        amt = Decimal(str(round(rng.uniform(10, 5000), 2)))
+        abs_formatted = f"{abs(amt):,.2f}"
+
+        if has_dollar:
+            abs_formatted = f"${abs_formatted}"
+
+        return f"{prefix}{abs_formatted}"
 
     def _generate_row_values(
         self,

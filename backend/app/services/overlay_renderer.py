@@ -370,13 +370,6 @@ class OverlayRenderer:
         summary = fake_data["summary"]
         rng = random.Random(params.seed if params.seed else 42)
 
-        summary_amounts = [
-            _format_amount(summary["opening_balance"]),
-            _format_amount(summary["total_deposits"]),
-            _format_amount(summary["total_withdrawals"]),
-            _format_amount(summary["closing_balance"]),
-        ]
-        summary_idx = 0
         address_count = 0
         results: list[tuple[TextElement, str]] = []
 
@@ -398,12 +391,24 @@ class OverlayRenderer:
             elif te.data_type == DataType.EMAIL:
                 fake_text = fake_data["email"]
             elif te.data_type == DataType.AMOUNT:
-                if summary_idx < len(summary_amounts):
-                    fake_text = summary_amounts[summary_idx]
-                    summary_idx += 1
-                else:
-                    amt = Decimal(str(round(rng.uniform(50, 5000), 2)))
-                    fake_text = _format_amount(amt)
+                # Preserve original prefix pattern (+$, -$, minus$, $)
+                text = te.text.strip()
+                prefix = ""
+                if text.startswith("minus"):
+                    prefix = "minus"
+                    text = text[5:]
+                elif text.startswith("-"):
+                    prefix = "-"
+                    text = text[1:]
+                elif text.startswith("+"):
+                    prefix = "+"
+                    text = text[1:]
+                has_dollar = "$" in text
+                amt = Decimal(str(round(rng.uniform(10, 5000), 2)))
+                abs_formatted = f"{abs(amt):,.2f}"
+                if has_dollar:
+                    abs_formatted = f"${abs_formatted}"
+                fake_text = f"{prefix}{abs_formatted}"
             elif te.data_type == DataType.DATE:
                 if transactions:
                     orig_len = len(te.text.strip()) if te.text else 10

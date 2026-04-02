@@ -23,11 +23,17 @@ logger = logging.getLogger(__name__)
 # Regex patterns for data detection
 # ---------------------------------------------------------------------------
 
-# Amounts: $1,234.56, -$50.00, ($123.45), 1234.56
-_AMOUNT_RE = re.compile(r"^[\$€£]?\s*[\-\(]?\s*\d{1,3}(?:[,]\d{3})*(?:\.\d{1,2})?\s*[\)\-]?$")
+# Amounts: $1,234.56, -$50.00, ($123.45), 1234.56, +$2,630.31, minus$2,088.33
+_AMOUNT_RE = re.compile(
+    r"^(?:minus)?\s*[+\-]?\s*[\$€£]?\s*[\-\(]?\s*\d{1,3}(?:[,]\d{3})*(?:\.\d{1,2})?\s*[\)\-]?$",
+    re.IGNORECASE,
+)
 
-# Standalone dollar amounts that are clearly money
-_STRICT_AMOUNT_RE = re.compile(r"^\$\s*[\-\(]?\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*[\)]?$")
+# Standalone dollar amounts that are clearly money (with $ sign)
+_STRICT_AMOUNT_RE = re.compile(
+    r"^(?:minus)?\s*[+\-]?\s*\$\s*[\-\(]?\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*[\)]?$",
+    re.IGNORECASE,
+)
 
 # Date patterns
 _DATE_PATTERNS: list[re.Pattern[str]] = [
