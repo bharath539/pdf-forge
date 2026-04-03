@@ -16,6 +16,7 @@ import logging
 import fitz
 
 from app.models.template import (
+    DataType,
     ElementCategory,
     PDFTemplate,
     RedactedRect,
@@ -67,14 +68,27 @@ class PDFRedactor:
 
                 # Search for the original text in the PDF
                 rects = page.search_for(original_text)
+
+                # Fallback: if prefixed amounts (-$, +$, minus$) fail,
+                # try stripping the prefix and searching for the core amount
+                if not rects and te.data_type == DataType.AMOUNT:
+                    stripped = original_text.strip()
+                    for prefix in ("minus", "-", "+"):
+                        if stripped.startswith(prefix):
+                            stripped = stripped[len(prefix) :]
+                            break
+                    stripped = stripped.strip()
+                    if stripped and stripped != original_text.strip():
+                        rects = page.search_for(stripped)
+
                 if rects:
                     best_rect = closest_rect(rects, te.x, te.y)
-                    # Add small margin for clean redaction
+                    # Add margin for clean redaction (2pt ensures full coverage)
                     expanded = fitz.Rect(
-                        best_rect.x0 - 1,
-                        best_rect.y0 - 1,
-                        best_rect.x1 + 1,
-                        best_rect.y1 + 1,
+                        best_rect.x0 - 2,
+                        best_rect.y0 - 2,
+                        best_rect.x1 + 2,
+                        best_rect.y1 + 2,
                     )
                     page.add_redact_annot(expanded, fill=(1, 1, 1))
                     redacted_rects.append(
@@ -92,10 +106,10 @@ class PDFRedactor:
                     text_height = te.font_size
                     text_width = te.width or text_height * len(original_text) * 0.6
                     rect = fitz.Rect(
-                        te.x - 1,
-                        te.y - 1,
-                        te.x + text_width + 1,
-                        te.y + text_height + 1,
+                        te.x - 2,
+                        te.y - 2,
+                        te.x + text_width + 2,
+                        te.y + text_height + 2,
                     )
                     page.add_redact_annot(rect, fill=(1, 1, 1))
                     redacted_rects.append(
@@ -117,7 +131,7 @@ class PDFRedactor:
             # Redact embedded account number digits and record positions
             for digit_str in acct_digits:
                 for rect in page.search_for(digit_str):
-                    expanded = fitz.Rect(rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1)
+                    expanded = fitz.Rect(rect.x0 - 2, rect.y0 - 2, rect.x1 + 2, rect.y1 + 2)
                     page.add_redact_annot(expanded, fill=(1, 1, 1))
                     acct_digit_rects.append(
                         {"page": page_idx, "x0": rect.x0, "y0": rect.y0, "x1": rect.x1, "y1": rect.y1}
